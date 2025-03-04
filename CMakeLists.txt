@@ -10,3 +10,8 @@ add_executable(shardkv src/main.cpp src/server.cpp src/kv_store.cpp src/consiste
 # Include directories
 target_include_directories(shardkv PRIVATE src)
 
+# Add GoogleTest for unit testing
+enable_testing()
+add_executable(test_kvstore tests/test_kv_store.cpp src/kv_store.cpp)
+target_link_libraries(test_kvstore gtest gtest_main pthread)
+add_test(NAME KVStoreTest COMMAND test_kvstore)
