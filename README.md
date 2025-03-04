@@ -31,3 +31,4 @@ make
 ## Requirements
 - `GCC` or `clang`
 - `CMake`
+- GoogleTest
