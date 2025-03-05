@@ -14,7 +14,7 @@ void run_client() {
 
 int main(int argc, char **argv) {
     std::thread server_thread(server_driver);
-    std::thread client_thread(client_driver);
+    std::thread client_thread(run_client);
 
     server_thread.join();
     client_thread.join();
