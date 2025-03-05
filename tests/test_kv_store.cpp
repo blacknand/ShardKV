@@ -22,7 +22,7 @@ TEST(KVStoreTest, ThreadSafety) {
     KVStore store;
 
     std::thread t1([&]() { store.put("key2", "value2"); });
-    std::thread t2([&]() { store.put("key2", "value2"); });
+    std::thread t2([&]() { store.put("key3", "value3"); });
 
     t1.join();
     t2.join();
