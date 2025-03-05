@@ -13,6 +13,7 @@
 void comm(int confd) {
     char buff[MAX];
     int i;
+    char command[10], key[50], value[100];
 
     // Infinite loop to keep server alive
     for (;;) {
@@ -20,17 +21,26 @@ void comm(int confd) {
         read(confd, buff, sizeof(buff));        // Read message from client and read into buffer
         printf("[INFO] Recieved from client: %s\t", buff);
 
-        bzero(buff, MAX);
-        i = 0;
+        sscanf(buff, "%s %s %[^\n]", command, key, value);      // Read the commands
 
-        // Write server message to client buffer
-        while ((buff[i++] = getchar()) != '\n') {
-            write(confd, buff, sizeof(buff));
-            if (strncmp("[INFO] exit", buff, 4) == 0) {
+        // Check for the commands
+        if (strcmp(command, "PUT") == 0) {
+            put(key, value);
+            write(confd, "OK\n", 3);
+        } else if (strcmp(command, "GET") == 0) {
+            char *result = get(key);
+            if (result)
+                write(confd, result, strlen(result));
+            else
+                write(confd, "[ERROR] key not found\n", 20);
+        } else if (strcmp(command, "DELETE") == 0) {
+            delete(key);
+            write(confd, "OK\n", 3);
+        } else if (strcmp(command, "exit") == 0) {
                 prinf("[INFO] Server exit\n");
                 break;
-            }
-        }
+        } else
+            write(confd, "[ERROR] invalid command\n", 22);
     }
 }
 
