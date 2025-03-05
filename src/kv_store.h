@@ -15,6 +15,6 @@ public:
 private:
     std::unordered_map<std::string, std::string> store;
     std::mutex store_mutex;
-}
+};
 
 #endif  // KV_STORE_H
