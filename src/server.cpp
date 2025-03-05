@@ -13,29 +13,40 @@
 // In charge of the communcation between a server and a client
 void comm(int confd) {
     char buff[MAX];
-    int i;
     char command[10], key[50], value[100];
     KVStore store;
 
     // Infinite loop to keep server alive
     for (;;) {
         bzero(buff, MAX);
-        read(confd, buff, sizeof(buff));        // Read message from client and read into buffer
-        printf("[INFO] Recieved from client: %s\t", buff);
+        int bytes_read = read(confd, buff, sizeof(buff) - 1);        // Read message from client and read into buffer
+        
+        if (bytes_read <= 0) {
+            printf("[INFO] Recieved from client: %s\n", buff);
+            break;
+        }
 
-        sscanf(buff, "%s %s %[^\n]", command, key, value);      // Read the commands
+        buff[bytes_read] = '\0';
+        printf("[INFO] recieved from TCP client: %s\n", buff);
+
+        // Read the commands
+        if (sscanf(buff, "%s %s %[^\n]", command, key, value) < 2) {
+            write(confd, "[ERROR] Invalid command format\n", 30);
+            continue; 
+        }
+
 
         // Check for the commands
-        if (strcmp(command, "put") == 0) {
+        if (strcmp(command, "PUT") == 0) {
             store.put(key, value);
             write(confd, "OK\n", 3);
-        } else if (strcmp(command, "get") == 0) {
+        } else if (strcmp(command, "GET") == 0) {
             std::string result = store.get(key);
             if (!result.empty())
                 write(confd, result.c_str(), result.length());
             else
                 write(confd, "[ERROR] key not found\n", 20);
-        } else if (strcmp(command, "delete") == 0) {
+        } else if (strcmp(command, "DELETE") == 0) {
             int result = store.remove(key);
             if (result == 0)
                 write(confd, "OK\n", 3);

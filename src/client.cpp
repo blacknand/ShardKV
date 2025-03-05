@@ -10,16 +10,30 @@ void client_comm(int sockfd) {
         printf("Enter command: ");
         n = 0;
 
-        while ((buff[n++] = getchar()) != '\n') {
-            write(sockfd, buff, sizeof(buff));
-            bzero(buff, sizeof(buff));
-            read(sockfd, buff, sizeof(buff));
-            printf("[INFO] Recieved from TCP Server: %s", buff);
+        // Read the full command into buffer
+        while ((buff[n] = getchar()) != '\n' && n < MAX - 1) {
+            n++;
+        }
+        buff[n] = '\0';  // Null terminate the string
 
-            if ((strncmp(buff, "exit", 4)) == 0) {
-                printf("[INFO] TCP server exit");
-                break;
-            }
+        // Send the full command to the server
+        write(sockfd, buff, strlen(buff) + 1);
+
+        // Read response from server
+        bzero(buff, sizeof(buff));
+        int bytes_read = read(sockfd, buff, sizeof(buff) - 1);
+        if (bytes_read <= 0) {
+            printf("[INFO] Server closed connection\n");
+            break;
+        }
+
+        buff[bytes_read] = '\0';  // Null terminate response
+        printf("[INFO] Received from TCP Server: %s\n", buff);
+
+        // Check if we need to exit
+        if (strncmp(buff, "exit", 4) == 0) {
+            printf("[INFO] TCP server exit\n");
+            break;
         }
     }
 }

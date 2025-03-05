@@ -10,7 +10,7 @@
 #include <sys/types.h> 
 #include <unistd.h> 
 
-#define MAX 80 
+#define MAX 512 
 #define PORT 8080                   // Unused port
 #define SA struct sockaddr
 
