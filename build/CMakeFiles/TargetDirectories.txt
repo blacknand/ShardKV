@@ -1,5 +1,0 @@
-/home/blacknand/projects/ShardKV/build/CMakeFiles/shardkv.dir
-/home/blacknand/projects/ShardKV/build/CMakeFiles/test_kvstore.dir
-/home/blacknand/projects/ShardKV/build/CMakeFiles/test.dir
-/home/blacknand/projects/ShardKV/build/CMakeFiles/edit_cache.dir
-/home/blacknand/projects/ShardKV/build/CMakeFiles/rebuild_cache.dir

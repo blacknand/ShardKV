@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/shardkv.dir/src/main.cpp.o CMakeFiles/shardkv.dir/src/server.cpp.o CMakeFiles/shardkv.dir/src/kv_store.cpp.o CMakeFiles/shardkv.dir/src/consistent_hash.cpp.o CMakeFiles/shardkv.dir/src/raft.cpp.o -o shardkv 
