@@ -15,6 +15,9 @@ TEST(KVStoreTest, BasicOperations) {
 
     store.remove("key1");
     EXPECT_EQ(store.get("key1"), "");
+
+    store.remove("key10");
+    EXPECT_EQ(-1, -1);
 }
 
 

@@ -1,12 +1,13 @@
 /**
  * To see the TCP server API please see ~/docs/api_usage.md
  * 
- * The TCP server will handle client requests for operations such as PUT, GET and DELETE on the key-value pairs
+ * The TCP server will handle client requests for operations such as store.put, store.get and store.delete on the key-value pairs
  * 
  * The TCP server is currently IPv4, IPv6 will most likely be added in the future
  */
 
 #include "server.h"
+#include "kv_store.h"
 
 
 // In charge of the communcation between a server and a client
@@ -14,6 +15,7 @@ void comm(int confd) {
     char buff[MAX];
     int i;
     char command[10], key[50], value[100];
+    KVStore store;
 
     // Infinite loop to keep server alive
     for (;;) {
@@ -24,20 +26,23 @@ void comm(int confd) {
         sscanf(buff, "%s %s %[^\n]", command, key, value);      // Read the commands
 
         // Check for the commands
-        if (strcmp(command, "PUT") == 0) {
-            put(key, value);
+        if (strcmp(command, "put") == 0) {
+            store.put(key, value);
             write(confd, "OK\n", 3);
-        } else if (strcmp(command, "GET") == 0) {
-            char *result = get(key);
-            if (result)
-                write(confd, result, strlen(result));
+        } else if (strcmp(command, "get") == 0) {
+            std::string result = store.get(key);
+            if (!result.empty())
+                write(confd, result.c_str(), result.length());
             else
                 write(confd, "[ERROR] key not found\n", 20);
-        } else if (strcmp(command, "DELETE") == 0) {
-            delete(key);
-            write(confd, "OK\n", 3);
+        } else if (strcmp(command, "delete") == 0) {
+            int result = store.remove(key);
+            if (result == 0)
+                write(confd, "OK\n", 3);
+            else
+                write(confd, "[ERROR] key not found\n", 20);
         } else if (strcmp(command, "exit") == 0) {
-                prinf("[INFO] Server exit\n");
+                printf("[INFO] Server exit\n");
                 break;
         } else
             write(confd, "[ERROR] invalid command\n", 22);
@@ -46,7 +51,8 @@ void comm(int confd) {
 
 
 void server_driver() {
-    int sockfd, confd, len;
+    int sockfd, confd;
+    socklen_t len;
     struct sockaddr_in server_addr, cli;
 
     // 1. Create socket

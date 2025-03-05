@@ -17,7 +17,12 @@ std::string KVStore::get(const std::string& key) {
 }
 
 
-void KVStore::remove(const std::string& key) {
+int KVStore::remove(const std::string& key) {
     std::lock_guard<std::mutex> lock(store_mutex);
-    store.erase(key);
+    auto it = store.find(key);
+    if (it != store.end()) {
+        store.erase(key);
+        return 0;
+    } else
+        return -1;
 }
