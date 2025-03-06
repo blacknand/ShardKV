@@ -14,7 +14,7 @@
 #define PORT 8080                   // Unused port
 #define SA struct sockaddr
 
-void comm(int confd);
+void comm(int confd, int server_sock);
 void server_driver();
 
 #endif  // SERVER_H

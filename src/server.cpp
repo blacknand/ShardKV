@@ -11,7 +11,7 @@
 
 
 // In charge of the communcation between a server and a client
-void comm(int confd) {
+void comm(int confd, int server_sock) {
     char buff[MAX];
     char command[10], key[50], value[100];
     KVStore store;
@@ -34,6 +34,8 @@ void comm(int confd) {
 
         if (strcmp(command, "exit") == 0)  {
             printf("[INFO] Server exit\n");
+            write(confd, "exit\n", 5);
+            close(confd);
             return;
         }
 
@@ -41,7 +43,6 @@ void comm(int confd) {
             write(confd, "[ERROR] Invalid command format\n", 30);
             continue; 
         }
-
 
         // Check for the commands
         if (strcmp(command, "PUT") == 0) {
@@ -80,6 +81,11 @@ void server_driver() {
         bzero(&server_addr, sizeof(server_addr));
     }
 
+    // Allow address to reuse so we can restart server quickly after connection
+    int opt = 1;
+    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    bzero(&server_addr, sizeof(server_addr));
+
     // 2. Assign the IP address and port
     server_addr.sin_family = AF_INET;                           // IPv4
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY);            // Accept connections on any network inteface
@@ -88,6 +94,7 @@ void server_driver() {
     // 3. Bind socket to IP address
     if ((bind(sockfd, (SA*)&server_addr, sizeof(server_addr))) != 0) {
         printf("[ERROR] TCP socket bind failed\n");
+        close(sockfd);
         exit(0);
     } else
         printf("[INFO] TCP socket successfully binded\n");
@@ -95,21 +102,25 @@ void server_driver() {
     // 4. Start server listening
     if ((listen(sockfd, 5)) != 0) {
         printf("[ERROR] TCP server listening failed\n");
+        close(sockfd);
         exit(0);
     } else 
         printf("[INFO] TCP server listening\n");
 
     len = sizeof(cli);
-
+    
     // 5. Accept the data packet from client
     confd = accept(sockfd, (SA*)&cli, &len);
 
     if (confd < 0) {
         printf("[ERROR] TCP server accept failed\n");
+        close(sockfd);
         exit(0);
-    } else
+    } else 
         printf("[INFO] TCP server accepted the client\n");
 
-    comm(confd);            // 6. Handle client communication
+    comm(confd, sockfd);            // 6. Handle client communication
+
     close(sockfd);          // 7. Close socket
+    printf("[INFO] server has shutdown\n");
 }
