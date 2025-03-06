@@ -30,7 +30,14 @@ void comm(int confd) {
         printf("[INFO] recieved from TCP client: %s\n", buff);
 
         // Read the commands
-        if (sscanf(buff, "%s %s %[^\n]", command, key, value) < 2) {
+        int command_val = sscanf(buff, "%s %s %[^\n]", command, key, value);
+
+        if (strcmp(command, "exit") == 0)  {
+            printf("[INFO] Server exit\n");
+            return;
+        }
+
+        if (command_val < 2) {
             write(confd, "[ERROR] Invalid command format\n", 30);
             continue; 
         }
@@ -52,9 +59,6 @@ void comm(int confd) {
                 write(confd, "OK\n", 3);
             else
                 write(confd, "[ERROR] key not found\n", 20);
-        } else if (strcmp(command, "exit") == 0) {
-                printf("[INFO] Server exit\n");
-                break;
         } else
             write(confd, "[ERROR] invalid command\n", 22);
     }
