@@ -71,6 +71,8 @@ void server_driver() {
     socklen_t len;
     struct sockaddr_in server_addr, cli;
 
+    // TODO: concurrency to hanlde multiple TCP sockets at the same time
+
     // 1. Create socket
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd == -1) {
