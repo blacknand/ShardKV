@@ -1,8 +1,10 @@
 #include "client.h"
 
+
 void TCPClient::start() {
     _io_context.run();
 }
+
 
 void TCPClient::handle_resolve(const boost::system::error_code& error, tcp::resolver::iterator endpoint_iterator) {
     if (!error) {
@@ -14,6 +16,7 @@ void TCPClient::handle_resolve(const boost::system::error_code& error, tcp::reso
     }
 }
 
+
 void TCPClient::handle_connect(const boost::system::error_code& error) {
     if (!error) {
         boost::asio::async_read(_socket, boost::asio::buffer(_buffer),
@@ -24,6 +27,7 @@ void TCPClient::handle_connect(const boost::system::error_code& error) {
         std::cerr << "Connect error: " << error.message() << "\n";
     }
 }
+
 
 void TCPClient::handle_read(const boost::system::error_code& error, size_t bytes_transferred) {
     if (!error || error == boost::asio::error::eof) {
@@ -38,6 +42,7 @@ void TCPClient::handle_read(const boost::system::error_code& error, size_t bytes
         _socket.close();
     }
 }
+
 
 int main() {
     try {

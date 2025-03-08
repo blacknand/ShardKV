@@ -1,6 +1,7 @@
 #ifndef SERVER_H
 #define SERVER_H
 
+
 #include <boost/asio.hpp>
 #include <boost/bind/bind.hpp>
 #include <boost/shared_ptr.hpp>
@@ -8,7 +9,9 @@
 #include <iostream>
 #include <string>
 
+
 using boost::asio::ip::tcp;
+
 
 class TCPConnection : public boost::enable_shared_from_this<TCPConnection> {
 public:
@@ -26,6 +29,7 @@ private:
     std::string _message;
 };
 
+
 class TCPServer {
 public:
     TCPServer(boost::asio::io_context& io_context, unsigned short port)
@@ -38,5 +42,6 @@ private:
     void handle_accept(TCPConnection::pointer new_connection, const boost::system::error_code& error);
     tcp::acceptor _acceptor;
 };
+
 
 #endif  // SERVER_H

@@ -1,13 +1,16 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
+
 #include <boost/asio.hpp>
 #include <boost/array.hpp>
 #include <boost/bind/bind.hpp>
 #include <iostream>
 #include <string>
 
+
 using boost::asio::ip::tcp;
+
 
 class TCPClient {
 public:
@@ -30,5 +33,6 @@ private:
     tcp::socket _socket;
     boost::array<char, 128> _buffer;
 };
+
 
 #endif  // CLIENT_H

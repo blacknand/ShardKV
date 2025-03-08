@@ -1,6 +1,7 @@
 #include "server.h"
 #include "kv_store.h"
 
+
 void TCPConnection::start() {
     _message = "test message";
     boost::asio::async_write(_socket, boost::asio::buffer(_message),
@@ -8,6 +9,7 @@ void TCPConnection::start() {
                     boost::asio::placeholders::error,
                     boost::asio::placeholders::bytes_transferred));
 }
+
 
 void TCPConnection::handle_write(const boost::system::error_code& error, size_t /*bytes_transferred*/) {
     if (!error) {
@@ -18,12 +20,14 @@ void TCPConnection::handle_write(const boost::system::error_code& error, size_t 
     _socket.close();
 }
 
+
 void TCPServer::start_accept() {
     TCPConnection::pointer new_connection = TCPConnection::create(static_cast<boost::asio::io_context&>(_acceptor.get_executor().context()));
     _acceptor.async_accept(new_connection->socket(),
         boost::bind(&TCPServer::handle_accept, this, new_connection,
                     boost::asio::placeholders::error));
 }
+
 
 void TCPServer::handle_accept(TCPConnection::pointer new_connection, const boost::system::error_code& error) {
     if (!error) {
@@ -33,6 +37,7 @@ void TCPServer::handle_accept(TCPConnection::pointer new_connection, const boost
     }
     start_accept();
 }
+
 
 int main() {
     try {
