@@ -1,68 +1,51 @@
 #include "client.h"
 
+void TCPClient::start() {
+    _io_context.run();
+}
 
-void client_comm(int sockfd) {
-    char buff[MAX];
-    int n;
-
-    for (;;) {
-        bzero(buff, sizeof(buff));
-        printf("Enter command: ");
-        n = 0;
-
-        // Read the full command into buffer
-        while ((buff[n] = getchar()) != '\n' && n < MAX - 1) {
-            n++;
-        }
-        buff[n] = '\0';  // Null terminate the string
-
-        // Send the full command to the server
-        write(sockfd, buff, strlen(buff) + 1);
-
-        // Read response from server
-        bzero(buff, sizeof(buff));
-        int bytes_read = read(sockfd, buff, sizeof(buff) - 1);
-        if (bytes_read <= 0) {
-            printf("[INFO] Server closed connection\n");
-            break;
-        }
-
-        buff[bytes_read] = '\0';  // Null terminate response
-        printf("[INFO] Received from TCP Server: %s\n", buff);
-
-        // Check if we need to exit
-        if (strncmp(buff, "exit", 4) == 0) {
-            printf("[INFO] TCP server exit\n");
-            break;
-        }
+void TCPClient::handle_resolve(const boost::system::error_code& error, tcp::resolver::iterator endpoint_iterator) {
+    if (!error) {
+        boost::asio::async_connect(_socket, endpoint_iterator,
+            boost::bind(&TCPClient::handle_connect, this,
+                        boost::asio::placeholders::error));
+    } else {
+        std::cerr << "Resolve error: " << error.message() << "\n";
     }
 }
 
-
-void client_driver() {
-    int sockfd, connfd;
-    struct sockaddr_in servaddr, cli;
-
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd == -1) {
-        printf("[ERROR] TCP socket creation failed\n");
-        exit(0);
+void TCPClient::handle_connect(const boost::system::error_code& error) {
+    if (!error) {
+        boost::asio::async_read(_socket, boost::asio::buffer(_buffer),
+            boost::bind(&TCPClient::handle_read, this,
+                        boost::asio::placeholders::error,
+                        boost::asio::placeholders::bytes_transferred));
+    } else {
+        std::cerr << "Connect error: " << error.message() << "\n";
     }
-    else
-        printf("[INFO] TCP socket successfully created\n");
+}
 
-    bzero(&servaddr, sizeof(servaddr));
+void TCPClient::handle_read(const boost::system::error_code& error, size_t bytes_transferred) {
+    if (!error) {
+        std::cout << "Received: ";
+        std::cout.write(_buffer.data(), bytes_transferred);
+        std::cout << "\n";
+        _socket.close();
+    } else if (error != boost::asio::error::eof) {
+        std::cerr << "Read error: " << error.message() << "\n";
+    } else {
+        std::cout << "Server closed connection\n";
+        _socket.close();
+    }
+}
 
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");          // Pingback address
-    servaddr.sin_port = htons(PORT);
-
-    if (connect(sockfd, (SA*)&servaddr, sizeof(servaddr)) != 0) {
-        printf("[ERROR] connection with the TCP server failed\n");
-        exit(0);
-    } else
-        printf("[INFO] connected to the TCP server\n");
-
-    client_comm(sockfd);
-    close(sockfd);
+int main() {
+    try {
+        boost::asio::io_context io_context;
+        TCPClient client(io_context, "127.0.0.1", "8080");
+        client.start();
+    } catch (std::exception& e) {
+        std::cerr << "Exception: " << e.what() << "\n";
+    }
+    return 0;
 }
