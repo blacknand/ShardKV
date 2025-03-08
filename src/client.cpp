@@ -26,7 +26,7 @@ void TCPClient::handle_connect(const boost::system::error_code& error) {
 }
 
 void TCPClient::handle_read(const boost::system::error_code& error, size_t bytes_transferred) {
-    if (!error) {
+    if (!error || error == boost::asio::error::eof) {
         std::cout << "Received: ";
         std::cout.write(_buffer.data(), bytes_transferred);
         std::cout << "\n";
