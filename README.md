@@ -12,7 +12,7 @@ A fast distributed, self-healing key-value store designed for fault-tolerance an
 - **Leader Election**: Uses the Raft consensus algorithm for consistency.
 ## Roadmap
 - [x] Implement in-memory key-value store
-- [ ] Add networking (TCP server)
+- [x] Add networking (TCP server)
 - [ ] Implement consistent hashing
 - [ ] Add failure detection and self-healing
 - [ ] Implement leader election (Raft)
