@@ -40,6 +40,12 @@ void TCPClient::handle_read(const boost::system::error_code& error, size_t bytes
             std::getline(is, response); // Read until \n
             std::cout << "Received: " << response << "\n";
 
+            if (response == "CLOSING_SOCKET") {
+                _socket.close();            // Stop the client socket
+                _io_context.stop();         // Stop the clients io_context
+                return;
+            }
+
             // Prompt for next command
             std::string command;
             std::cout << "Enter command: ";
@@ -51,9 +57,11 @@ void TCPClient::handle_read(const boost::system::error_code& error, size_t bytes
     } else if (error == boost::asio::error::eof) {
         std::cout << "Server closed connection\n";
         _socket.close();
+        _io_context.stop();
     } else {
         std::cerr << "Read error: " << error.message() << "\n";
         _socket.close();
+        _io_context.stop();
     }
 }
 
