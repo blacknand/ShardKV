@@ -24,15 +24,11 @@ void TCPConnection::handle_read(const boost::system::error_code& error, size_t b
             _message = "OK\n";
         } else if (command == "GET") {
             std::string result = kv_store->get(key);
-            std::cerr << "GET debug (before check): " << result << std::endl;
             if (_message.empty()) { 
                 _message = "NOT_FOUND\n"; 
-                std::cerr << "_message.empty() true" << std::endl;
             } else {
                 _message = result + "\n";
-                std::cerr << "_message.empty() false" << std::endl;
             }
-            std::cerr << "GET debug (after check): " << _message << std::endl;
         } else if (command == "DELETE") {
             int result = kv_store->remove(key);
             std::cerr << "DELETE debug: " << _message << std::endl;
