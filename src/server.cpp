@@ -23,12 +23,19 @@ void TCPConnection::handle_read(const boost::system::error_code& error, size_t b
             kv_store->put(key, value);
             _message = "OK\n";
         } else if (command == "GET") {
-            _message = kv_store->get(key) + "\n";
-            if (_message.empty()) { _message = "NOT_FOUND"; }
-            _message += "\n";
+            std::string result = kv_store->get(key);
+            std::cerr << "GET debug (before check): " << result << std::endl;
+            if (_message.empty()) { 
+                _message = "NOT_FOUND\n"; 
+                std::cerr << "_message.empty() true" << std::endl;
+            } else {
+                _message = result + "\n";
+                std::cerr << "_message.empty() false" << std::endl;
+            }
+            std::cerr << "GET debug (after check): " << _message << std::endl;
         } else if (command == "DELETE") {
             int result = kv_store->remove(key);
-            _message = (result == 0) ? "OK\n" : "NOT_FOUND\n";
+            std::cerr << "DELETE debug: " << _message << std::endl;
         } else if (command == "EXIT") {
             _message = "CLOSING_SOCKET\n";
             boost::asio::async_write(_socket, boost::asio::buffer(_message),
