@@ -28,10 +28,11 @@ private:
     void handle_resolve(const boost::system::error_code& error, tcp::resolver::iterator endpoint_iterator);
     void handle_connect(const boost::system::error_code& error);
     void handle_read(const boost::system::error_code& error, size_t bytes_transferred);
+    void handle_write(const boost::system::error_code& error, size_t bytes_transferred);
     boost::asio::io_context& _io_context;
     tcp::resolver _resolver;
     tcp::socket _socket;
-    boost::array<char, 128> _buffer;
+    boost::asio::streambuf _buffer;     // For dynamic sizing
 };
 
 
