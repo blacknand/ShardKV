@@ -8,6 +8,8 @@
 #include <boost/bind/bind.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
+#include <mutex>
+#include <thread>
 #include <iostream>
 #include <string>
 #include <sstream>
@@ -15,6 +17,8 @@
 
 
 using boost::asio::ip::tcp;
+
+std::mutex console_mutex;
 
 
 class TCPConnection : public boost::enable_shared_from_this<TCPConnection> {
@@ -46,6 +50,9 @@ public:
         : _acceptor(io_context, tcp::endpoint(tcp::v4(), port)) {
         start_accept();
     }    
+
+    void run_server(boost::asio::io_context& context, int port, int threads);
+    void handle_client(tcp::socket socket);
 
 private:
     void start_accept();
