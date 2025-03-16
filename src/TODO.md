@@ -2,9 +2,9 @@
 
 ## **Phase 1: Immediate Fixes (Before Moving to Raft & gRPC)**
 ### **1️⃣ Multi-threaded Event Loop**
-- [ ] Replace single-threaded `io_context.run()` with `boost::asio::thread_pool`
-- [ ] Use `std::thread::hardware_concurrency()` to scale with CPU cores
-- [ ] Ensure all async handlers are executed in worker threads
+- [x] Replace single-threaded `io_context.run()` with `boost::asio::thread_pool`
+- [x] Use `std::thread::hardware_concurrency()` to scale with CPU cores
+- [x] Ensure all async handlers are executed in worker threads
 
 ### **2️⃣ Better Error Handling**
 - [ ] Handle unexpected disconnections (`connection_reset`)
