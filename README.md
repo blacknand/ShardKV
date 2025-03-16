@@ -15,7 +15,3 @@ make
 # NOTE: If you want to try ShardKV in its current state, please see src/README.md
 ./shardkv
 ```
-## Requirements
-- `GCC` or `clang`
-- `CMake`
-- GoogleTest
