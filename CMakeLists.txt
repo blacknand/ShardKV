@@ -16,6 +16,8 @@ add_executable(shardkv
                 src/consistent_hash.cpp 
                 # Will require MurmurHash3 at some point
                 src/MurmurHash3.cpp
+                src/MurmurHash3.cpp
+                src/MurmurHash3.cpp
                 src/raft.cpp)
 
 # Include directories for shardkv (Boost and src)
