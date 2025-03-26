@@ -3,15 +3,15 @@
 
 uint32_t ConsistentHash::hash_key(const std::string& key) {
     uint32_t hash;
-    MurmurHash3_x86_32(key.c_str(), key.size(), 42, &hash); // 42 = seed
+    MurmurHash3_x86_32(key.c_str(), key.size(), hash_seed, &hash); // 42 = seed
     return hash;
 }
 
 
 void ConsistentHash::add_node(const std::string &node) {
     for (int i = 0; i < vnode_count; i++) {
-        std::string node = node + "#" + std::to_string(i);
-        uint32_t hash = this->hash_key(node);
+        std::string virtual_node = node + "#" + std::to_string(i);
+        uint32_t hash = this->hash_key(virtual_node);
         ring[hash] = node;
     }
 }
@@ -19,8 +19,8 @@ void ConsistentHash::add_node(const std::string &node) {
 
 void ConsistentHash::remove_node(const std::string &node) {
     for (int i = 0; i < vnode_count; i++) {
-        std::string node = node + "#" + std::to_string(i);
-        uint32_t hash = this->hash_key(node);
+        std::string virtual_node = node + "#" + std::to_string(i);
+        uint32_t hash = this->hash_key(virtual_node);
         ring.erase(hash);
     }
 }
@@ -39,9 +39,9 @@ std::string ConsistentHash::get_node(const std::string &key) {
 }
 
 
-int main() {
-    ConsistentHash hash;
-    std::string key = "test_key";
-    std::cout << "Hash: " << hash.hash_key(key) << std::endl;
-    return 0;
-}
+// int main() {
+//     ConsistentHash hash;
+//     std::string key = "test_key";
+//     std::cout << "Hash: " << hash.hash_key(key) << std::endl;
+//     return 0;
+// }
