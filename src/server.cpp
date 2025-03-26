@@ -1,8 +1,10 @@
 #include "server.h"
 
 
-void TCPConnection::start(KVStore& store) {
+void TCPConnection::start(KVStore& store, TCPServer* server, ConsistentHash* hash_ring) {
     kv_store = &store;
+    _hash_ring = hash_ring;
+    _server = &server;
     _socket.async_read_some(boost::asio::buffer(_buffer),
         boost::bind(&TCPConnection::handle_read, shared_from_this(),
                     boost::asio::placeholders::error,
@@ -18,8 +20,23 @@ void TCPConnection::handle_read(const boost::system::error_code& error, size_t b
         iss >> command >> key;
 
         std::cerr << "Read: " << std::string(_buffer.data(), bytes_transferred) << "\n";
-        
-        if (command == "PUT" && iss >> value) {
+
+        // std::string responsible_node = _hash_ring->get_node(key);
+        // if (responsible_node != _server->self_address) {
+        //     std::string response = forward_to_node(responsible_node, request);
+        //     _message = response + "\n";
+        //     return;
+        // }
+      
+        if (command == "JOIN" && iss >> key) {
+            // If client is requesting to join active nodes
+            _server->add_node(key);
+            _message = "OK\n";
+        } else if (command == "LEAVE" && iss >> key) {
+            // If client is requesting to leave active nodes
+            _server->remove_node(key);
+            _message = "OK\n";
+        } else if (command == "PUT" && iss >> value) {
             kv_store->put(key, value);
             _message = "OK\n";
         } else if (command == "GET") {
@@ -80,7 +97,7 @@ void TCPServer::start_accept() {
 
 void TCPServer::handle_accept(TCPConnection::pointer new_connection, const boost::system::error_code& error) {
     if (!error) {
-        new_connection->start(_store);
+        new_connection->start(_store, this);
     } else {
         std::cerr << "Accept error: " << error.message() << "\n";
     }
@@ -110,6 +127,17 @@ void TCPServer::run_server(boost::asio::io_context& context, int port, int threa
 }
 
 
+void TCPServer::add_node(const std::string &address) {
+    std::lock_guard<std::mutex> lock(node_mutex);
+    active_nodes.insert(address);
+}
+
+
+void TCPServer::remove_node(const std::string &address) {
+    active_nodes.erase(address);
+}
+
+
 int main() {
     try {
         boost::asio::io_context io_context;
@@ -117,7 +145,7 @@ int main() {
         const int num_threads = std::thread::hardware_concurrency();
 
         TCPServer tcp_server(io_context, port);
-        tcp_server.run_server(io_context, port, num_threads);
+        tcp_server.run_server(io_context, port, num_threads, "127.0.0.1:5000");
     } catch (std::exception &e) {
         std::cerr << "Exception: " << e.what() << std::endl;
     }

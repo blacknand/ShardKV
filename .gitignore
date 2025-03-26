@@ -3,3 +3,5 @@ src/client
 src/server
 src/thread_pool.*
 src/MurmurHash3.*
+src/TODO.md
+src/FAANG_roadmap.md

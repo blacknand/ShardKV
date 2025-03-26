@@ -14,6 +14,7 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <unordered_set>
 
 
 using boost::asio::ip::tcp;
@@ -35,24 +36,29 @@ private:
         : _socket(io_context), _buffer(1024) {}
     void handle_write(const boost::system::error_code& error, size_t bytes_transferred);
     void handle_read(const boost::system::error_code& error, size_t bytes_transferred);
+    std::string forward_to_node(const std::string &address, const std::string &message);
 
     tcp::socket _socket;
     std::string _message;
     std::vector<char> _buffer;
-    KVStore *kv_store;
+    KVStore *kv_store = nullptr;
+    TCPServer *server = nullptr;
+    ConsistentHash *_hash_ring = nullptr;
 };
 
 
 class TCPServer {
 public:
     // Initialise exceptor with io_context for main event loop and IP address with port number
-    TCPServer(boost::asio::io_context& io_context, unsigned short port)
-        : _acceptor(io_context, tcp::endpoint(tcp::v4(), port)) {
+    TCPServer(boost::asio::io_context& io_context, unsigned short port, const std::string &address)
+        : _acceptor(io_context, tcp::endpoint(tcp::v4(), port)), self_address(address) {
         start_accept();
     }    
 
     void run_server(boost::asio::io_context& context, int port, int threads);
     void handle_client(tcp::socket socket);
+    void add_node(const std::string &address);
+    void remove_node(const std::string &address);
 
 private:
     void start_accept();
@@ -60,6 +66,9 @@ private:
 
     tcp::acceptor _acceptor;
     KVStore _store;                 // Server owns KVStore object which is passed to TCPConnection
+    std::unordered_set<std::string> active_nodes;       // Active nodes in the cluster
+    std::mutex node_mutex;
+    std::string self_address;
 };
 
 
