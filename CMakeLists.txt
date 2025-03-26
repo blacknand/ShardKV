@@ -7,6 +7,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 # Find Boost with required components (e.g., system for Asio)
 find_package(Boost REQUIRED COMPONENTS system)
 
+# Add GoogleTest as a dependency
+include(FetchContent)
+FetchContent_Declare(
+  googletest
+  URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+)
+# For Windows: Prevent overriding the parent project's compiler/linker settings
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+
 # Source files for main executable
 add_executable(shardkv 
                 src/main.cpp 
@@ -15,8 +25,6 @@ add_executable(shardkv
                 src/kv_store.cpp 
                 src/consistent_hash.cpp 
                 # Will require MurmurHash3 at some point
-                src/MurmurHash3.cpp
-                src/MurmurHash3.cpp
                 src/MurmurHash3.cpp
                 src/raft.cpp)
 
