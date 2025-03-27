@@ -21,20 +21,19 @@ void TCPConnection::handle_read(const boost::system::error_code& error, size_t b
 
         std::cerr << "Read: " << std::string(_buffer.data(), bytes_transferred) << "\n";
 
-        // std::string responsible_node = _hash_ring->get_node(key);
-        // if (responsible_node != _server->self_address) {
-        //     std::string response = forward_to_node(responsible_node, request);
-        //     _message = response + "\n";
-        //     return;
-        // }
-      
-        if (command == "JOIN" && iss >> key) {
+        std::string responsible_node = _hash_ring->get_node(key);   // Node that stores the key
+
+        if (responsible_node != _server->self_address) {
+            _message = forward_to_node(responsible_node, request) + "\n";
+        } else if (command == "JOIN" && iss >> key) {
             // If client is requesting to join active nodes
             _server->add_node(key);
+            _hash_ring->add_node(key);
             _message = "OK\n";
         } else if (command == "LEAVE" && iss >> key) {
             // If client is requesting to leave active nodes
             _server->remove_node(key);
+            _hash_ring->remove_node(key);
             _message = "OK\n";
         } else if (command == "PUT" && iss >> value) {
             kv_store->put(key, value);
@@ -82,6 +81,43 @@ void TCPConnection::handle_write(const boost::system::error_code& error, size_t 
     } else {
         std::cerr << "Write error: " << error.message() << "\n";
         _socket.close();
+    }
+}
+
+
+std::string TCPConnection::forward_to_node(const std::string &address, const std::string &message) {
+    try {
+        std::string host, port;
+        size_t colon = address.find(':');
+        host = address.substr(0, colon);
+        port = address.substr(colon + 1);
+
+        // NOTE: This is a blocking call, if we scaled to thousands of clients this
+        // will need to be asynchronous
+
+        // Create new TCP connection
+        boost::asio::io_context io_context;
+        tcp::resolver resolver(io_context);
+
+        // Use the resolver to get a list of endpoints
+        tcp::resolver::query query(host, port);
+        tcp::resolver::iterator endpoint_iter = resolver.resolve(query);
+
+        // Connect the endpoints by creating a socket
+        tcp::socket socket(io_context);
+        boost::asio::connect(socket, endpoint_iter);
+
+        boost::asio::write(socket, boost::asio::buffer(message + "\n"));
+        boost::asio::streambuf response_buf;
+        boost::asio::read_until(socket, response_buf, '\n');
+
+        std::istream is(&response_buf);
+        std::string respone;
+        std::getline(is, response);
+        return response;
+    } catch (std::exception& e) {
+        std::cerr << "Forwarding error: " << e.what() << "\n";
+        return "ERROR_FORWARDING";
     }
 }
 
