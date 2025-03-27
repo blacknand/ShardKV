@@ -4,7 +4,7 @@ project(ShardKV)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-# Find Boost with required components (e.g., system for Asio)
+# Find Boost with required components (build uses Boost.Asio)
 find_package(Boost REQUIRED COMPONENTS system)
 
 # Add GoogleTest as a dependency
@@ -13,41 +13,36 @@ FetchContent_Declare(
   googletest
   URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
 )
-# For Windows: Prevent overriding the parent project's compiler/linker settings
+# For Windows: Prevent overriding the parent project's compiler/linker settings when dealing with GoogleTest
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-# Source files for main executable
-add_executable(shardkv 
-                src/main.cpp 
-                # src/server.cpp 
-                # src/client.cpp 
-                src/kv_store.cpp 
-                src/consistent_hash.cpp 
-                # Will require MurmurHash3 at some point
-                src/MurmurHash3.cpp
-                src/raft.cpp)
+set(SHARED_SOURCES
+    src/kv_store.cpp
+    src/consistent_hash.cpp
+    src/MurmurHash3.cpp
+    # TODO: when implementing the raft protocol, add raft.cpp here
+ )
 
-# Include directories for shardkv (Boost and src)
-target_include_directories(shardkv PRIVATE src ${Boost_INCLUDE_DIRS})
+# ShardKV server target
+add_executable(shardkv_server
+                src/server.cpp
+                ${SHARED_SOURCES}
+)
 
-# Link Boost libraries to shardkv
-target_link_libraries(shardkv PRIVATE ${Boost_LIBRARIES})
+# ShardKV client executable
+add_executable(shardkv_client
+                src/client.cpp
+                ${SHARED_SOURCES}
+)
+
+find_package(Boost REQUIRED COMPONENTS system)
+target_link_libraries(shardkv_server PRIVATE Boost::system pthread)
+target_link_libraries(shardkv_client PRIVATE Boost::system pthread)
+
 
 # Enable testing
 enable_testing()
-
-# TCP server test
-# add_executable(test_tcp_server 
-#                 src/kv_store.cpp
-#                 src/client.cpp 
-#                 src/server.cpp 
-#                 tests/test_tcp_server.cpp)
-
-# target_include_directories(test_tcp_server PRIVATE src ${Boost_INCLUDE_DIRS})
-# target_link_libraries(test_tcp_server PRIVATE ${Boost_LIBRARIES})
-# add_test(NAME TCPServerTest COMMAND test_tcp_server)
-
 
 # Test consistent hashing
 add_executable(test_consistent_hashing
