@@ -4,7 +4,7 @@
 void TCPConnection::start(KVStore& store, TCPServer* server, ConsistentHash* hash_ring) {
     kv_store = &store;
     _hash_ring = hash_ring;
-    _server = &server;
+    _server = server;
     _socket.async_read_some(boost::asio::buffer(_buffer),
         boost::bind(&TCPConnection::handle_read, shared_from_this(),
                     boost::asio::placeholders::error,
@@ -112,7 +112,7 @@ std::string TCPConnection::forward_to_node(const std::string &address, const std
         boost::asio::read_until(socket, response_buf, '\n');
 
         std::istream is(&response_buf);
-        std::string respone;
+        std::string response;
         std::getline(is, response);
         return response;
     } catch (std::exception& e) {
@@ -131,9 +131,9 @@ void TCPServer::start_accept() {
 }
 
 
-void TCPServer::handle_accept(TCPConnection::pointer new_connection, const boost::system::error_code& error) {
+void TCPServer::handle_accept(boost::shared_ptr<TCPConnection> new_connection, const boost::system::error_code& error) {
     if (!error) {
-        new_connection->start(_store, this);
+        new_connection->start(_store, this, new_connection->_hash_ring);
     } else {
         std::cerr << "Accept error: " << error.message() << "\n";
     }
@@ -144,7 +144,7 @@ void TCPServer::handle_accept(TCPConnection::pointer new_connection, const boost
 void TCPServer::handle_client(tcp::socket socket) {
     auto connection = TCPConnection::create(static_cast<boost::asio::io_context&>(socket.get_executor().context()));
     connection->socket() = std::move(socket);
-    connection->start(_store);
+    connection->start(_store, connection->_server, connection->_hash_ring);
 }
 
 
@@ -174,14 +174,15 @@ void TCPServer::remove_node(const std::string &address) {
 }
 
 
-int main() {
+int main(int argc, char **argv) {
     try {
         boost::asio::io_context io_context;
-        const int port = 5000;
+        const int port = atoi(argv[1]);
+        const std::string address = argv[2];
         const int num_threads = std::thread::hardware_concurrency();
 
-        TCPServer tcp_server(io_context, port);
-        tcp_server.run_server(io_context, port, num_threads, "127.0.0.1:5000");
+        TCPServer tcp_server(io_context, port, address);
+        tcp_server.run_server(io_context, port, num_threads);
     } catch (std::exception &e) {
         std::cerr << "Exception: " << e.what() << std::endl;
     }

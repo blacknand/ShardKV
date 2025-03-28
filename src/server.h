@@ -3,6 +3,7 @@
 
 
 #include "kv_store.h"
+#include "consistent_hash.h"
 
 #include <boost/asio.hpp>
 #include <boost/bind/bind.hpp>
@@ -20,31 +21,7 @@
 using boost::asio::ip::tcp;
 
 std::mutex console_mutex;
-
-
-class TCPConnection : public boost::enable_shared_from_this<TCPConnection> {
-public:
-    typedef boost::shared_ptr<TCPConnection> pointer;
-    static pointer create(boost::asio::io_context& io_context) {
-        return pointer(new TCPConnection(io_context));
-    }
-    tcp::socket& socket() { return _socket; }
-    void start(KVStore& store);
-
-private:
-    TCPConnection(boost::asio::io_context& io_context) 
-        : _socket(io_context), _buffer(1024) {}
-    void handle_write(const boost::system::error_code& error, size_t bytes_transferred);
-    void handle_read(const boost::system::error_code& error, size_t bytes_transferred);
-    std::string forward_to_node(const std::string &address, const std::string &message);
-
-    tcp::socket _socket;
-    std::string _message;
-    std::vector<char> _buffer;
-    KVStore *kv_store = nullptr;
-    TCPServer *server = nullptr;
-    ConsistentHash *_hash_ring = nullptr;
-};
+class TCPConnection;
 
 
 class TCPServer {
@@ -59,17 +36,41 @@ public:
     void handle_client(tcp::socket socket);
     void add_node(const std::string &address);
     void remove_node(const std::string &address);
+    std::string self_address;
 
 private:
     void start_accept();
-    void handle_accept(TCPConnection::pointer new_connection, const boost::system::error_code& error);
+    void handle_accept(boost::shared_ptr<TCPConnection> new_connection, const boost::system::error_code& error);
 
     tcp::acceptor _acceptor;
     KVStore _store;                 // Server owns KVStore object which is passed to TCPConnection
     std::unordered_set<std::string> active_nodes;       // Active nodes in the cluster
     std::mutex node_mutex;
-    std::string self_address;
 };
 
+
+class TCPConnection : public boost::enable_shared_from_this<TCPConnection> {
+public:
+    typedef boost::shared_ptr<TCPConnection> pointer;
+    static pointer create(boost::asio::io_context& io_context) {
+        return pointer(new TCPConnection(io_context));
+    }
+    tcp::socket& socket() { return _socket; }
+    void start(KVStore& store, TCPServer* server, ConsistentHash* hash_ring);
+
+    tcp::socket _socket;
+    std::string _message;
+    std::vector<char> _buffer;
+    KVStore *kv_store = nullptr;
+    TCPServer *_server = nullptr;
+    ConsistentHash *_hash_ring = nullptr;
+
+private:
+    TCPConnection(boost::asio::io_context& io_context) 
+        : _socket(io_context), _buffer(1024) {}
+    void handle_write(const boost::system::error_code& error, size_t bytes_transferred);
+    void handle_read(const boost::system::error_code& error, size_t bytes_transferred);
+    std::string forward_to_node(const std::string &address, const std::string &message);
+};
 
 #endif  // SERVER_H
