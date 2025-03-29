@@ -1,45 +1,44 @@
-#! /bin/bash
+#!/bin/bash
 
 # Kill background processes on exit
 clean_up() {
     echo "Cleaning up..."
-    pkill -f "server 5000"
-    pkill -f "server 5001"
+    pkill -f "shardkv_server 5000"
+    pkill -f "shardkv_server 5001"
 }
-
 trap clean_up EXIT
 
-log_dir = "../logs"
-server5000log = "server.5000.log"
-server5001log = "server.5001.log"
+# Resolve paths
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+BUILD_DIR="$PROJECT_ROOT/build"
+LOG_DIR="$PROJECT_ROOT/logs"
 
-# Create logs directory if not exists
-if [ ! -d "$log_dir" ]; then
-    mkdir -p "$log_dir"
-    echo "Created logs directory"
-fi
+SERVER5000_LOG="$LOG_DIR/server.5000.log"
+SERVER5001_LOG="$LOG_DIR/server.5001.log"
 
-# Create server log files if not exists
-if [ ! -f "$server5000log" && ! -f "$server50001log" ]; then
-    touch "${log_dir}/${$server5000log}"
-    touch "${log_dir}/${$server5001log}"
-    echo "Create server logs"
-fi
+# Make sure logs dir exists at project root
+mkdir -p "$LOG_DIR"
 
-# Start 2 servers on different ports and pipe all output to log files in background
-./../build/shardkv_server 5000 "127.0.0.1:5000" > ../logs/server.5000.log 2>&1 &
-./../build/shardkv_server 5001 "127.0.0.1:5001" > ../logs/server.5001.log 2>&1 &
+# Touch log files if not exist
+[ ! -f "$SERVER5000_LOG" ] && touch "$SERVER5000_LOG"
+[ ! -f "$SERVER5001_LOG" ] && touch "$SERVER5001_LOG"
+
+# Start servers (FROM ANYWHERE, using absolute paths)
+"$BUILD_DIR/shardkv_server" 5000 "127.0.0.1:5000" > "$SERVER5000_LOG" 2>&1 &
+"$BUILD_DIR/shardkv_server" 5001 "127.0.0.1:5001" > "$SERVER5001_LOG" 2>&1 &
 sleep 1
 
-# Join the servers together
-echo "JOIN 127.0.0.1:5001" | ./../build/shardkv_client 127.0.0.1 5000
-echo "JOIN 127.0.0.1:5000" | ./../build/shardkv_client 127.0.0.1 5001
+# Join cluster
+echo "JOIN 127.0.0.1:5001" | "$BUILD_DIR/shardkv_client" 127.0.0.1 5000
+echo "JOIN 127.0.0.1:5000" | "$BUILD_DIR/shardkv_client" 127.0.0.1 5001
 
-# Insert a key that hashes to server 5000 and retrieve it from server 5001
-echo "PUT rocket starship" | ./../build/shardkv_client 127.0.0.1 5000
-echo "GET rocket" | ./../build/shardkv_client 127.0.0.1 5001
+# Test KV operations
+echo "PUT rocket starship" | "$BUILD_DIR/shardkv_client" 127.0.0.1 5000
+echo "GET rocket" | "$BUILD_DIR/shardkv_client" 127.0.0.1 5001
 
+# Print logs from root logs directory
 echo "--- Server 5000 Log ---"
-cat server.5000.log
+cat "$SERVER5000_LOG"
 echo "--- Server 5001 Log ---"
-cat server.5001.log
+cat "$SERVER5001_LOG"
