@@ -15,44 +15,93 @@ void TCPConnection::start(KVStore& store, TCPServer* server, ConsistentHash* has
 void TCPConnection::handle_read(const boost::system::error_code& error, size_t bytes_transferred) {
     if (!error) {
         std::string request(_buffer.data(), bytes_transferred);
+        request = boost::algorithm::trim_copy(request);
+
+        if (request.empty()) {
+            _socket.async_read_some(boost::asio::buffer(_buffer),
+                boost::bind(&TCPConnection::handle_read, shared_from_this(),
+                            boost::asio::placeholders::error,
+                            boost::asio::placeholders::bytes_transferred));
+            return;
+        }
+
+        std::cerr << "[DEBUG] Raw request: " << request << "\n" << std::flush;
         std::string command, key, value;
         std::istringstream iss(request);
         iss >> command >> key;
 
-        std::cerr << "Read: " << std::string(_buffer.data(), bytes_transferred) << "\n" << std::flush;
+        std::cerr << "[DEBUG] Parsed command: '" << command << ", key: " << key << "'\n" << std::flush;
 
-        if (command == "JOIN" && iss >> key) {
+        if (command == "JOIN") {
             // If client is requesting to join active nodes
-            _server->add_node(key);
-            _hash_ring->add_node(key);
-            _message = "OK\n";
-        } else if (command == "LEAVE" && iss >> key) {
-            // If client is requesting to leave active nodes
-            _server->remove_node(key);
-            _hash_ring->remove_node(key);
-            _message = "OK\n";
-        } else if (command == "PUT" && iss >> value) {
-            std::string responsible_node = _hash_ring->get_node(key);   // Node that stores the key
-            if (responsible_node != _server->self_address) {
-                // If the server is not the owner of the hash value
-                std::cerr << "[DEBUG] Evaluating PUT command, responsible_node: " << responsible_node 
-          << ", self_address: " << _server->self_address << "\n" << std::flush;
-                _message = forward_to_node(responsible_node, request) + "\n";
-            } else {
-                kv_store->put(key, value);
+            if (!key.empty()) {
+                std::cerr << "[DEBUG] Joining node: " << key << "\n" << std::flush;
+                _server->add_node(key);
+                _hash_ring->add_node(key);
                 _message = "OK\n";
+            } else {
+                std::cerr << "[ERROR] JOIN command missing address\n" << std::flush;
+                _message = "[ERROR] Missing address for JOIN\n";
+            }
+        } else if (command == "LEAVE") {
+            if (!key.empty()) {
+                // If client is requesting to leave active nodes
+                std::cerr << "[DEBUG] Removing node: " << key << "\n" << std::flush;
+                _server->remove_node(key);
+                _hash_ring->remove_node(key);
+                _message = "OK\n";
+            } else {
+                std::cerr << "[ERROR] LEAVE command missing address\n" << std::flush;
+                _message = "ERROR: Missing address for LEAVE\n";
+            }
+        } else if (command == "PUT") {
+            std::string rest_of_line;
+            std::getline(iss, rest_of_line);
+            value = boost::algorithm::trim_copy(rest_of_line);
+
+            if (key.empty() || value.empty()) {
+                std::cerr << "[ERROR] PUT command missing key or value\n" << std::flush;
+                _message = "ERROR: Missing key or value for PUT\n";
+            } else {
+                std::cerr << "[DEBUG] PUT key: '" << key << "', value: '" << value << "'\n" << std::flush;
+                std::string responsible_node = _hash_ring->get_node(key);   // Node that stores the key
+                std::cerr << "[DEBUG] Responsible node for key: '" << key << "': " << responsible_node << "\n" << std::flush;
+
+                if (responsible_node != _server->self_address) {
+                    std::cerr << "[DEBUG] Forwarding PUT to node: " << responsible_node << "\n" << std::flush;
+                    _message = forward_to_node(responsible_node, request) + "\n";
+                } else {
+                    std::cerr << "[DEBUG] Storing key locally\n" << std::flush;
+                    kv_store->put(key, value);
+                    _message = "OK\n";
+                }
             }
         } else if (command == "GET") {
-            std::string result = kv_store->get(key);
-            if (result.empty()) { 
-                _message = "NOT_FOUND\n"; 
+            if (!key.empty()) {
+                std::cerr << "[DEBUG] Getting key: '" << key << "'\n" << std::flush;
+                std::string result = kv_store->get(key);
+                if (result.empty()) {
+                    std::cerr << "[DEBUG] Key not found\n" << std::flush;
+                    _message = "NOT_FOUND\n";
+                } else {
+                    std::cerr << "[DEBUG] Found value: '" << result << "'\n" << std::flush;
+                    _message = result + "\n";
+                }
             } else {
-                _message = result + "\n";
+                std::cerr << "[ERROR] GET command missing key\n" << std::flush;
+                _message = "ERROR: Missing key for GET\n";
             }
         } else if (command == "DELETE") {
-            int result = kv_store->remove(key);
-            _message = (result == 0) ? "OK\n" : "NOT_FOUND\n";
+            if (!key.empty()) {
+                std::cerr << "[DEBUG] Deleting key: '" << key << "'\n" << std::flush;
+                int result = kv_store->remove(key);
+                _message = (result == 0) ? "OK\n" : "NOT_FOUND\n";
+            } else {
+                std::cerr << "[ERROR] DELETE command missing key\n" << std::flush;
+                _message = "ERROR: Missing key for DELETE\n";
+            }
         } else if (command == "EXIT") {
+            std::cerr << "[DEBUG] Closing connection per client request\n" << std::flush;
             _message = "CLOSING_SOCKET\n";
             boost::asio::async_write(_socket, boost::asio::buffer(_message),
                 boost::bind(&TCPConnection::handle_write, shared_from_this(),
@@ -61,15 +110,18 @@ void TCPConnection::handle_read(const boost::system::error_code& error, size_t b
             _socket.close();
             return;
         } else {
-            _message = "ERROR\n";
+            std::cerr << "[ERROR] Unkown command: " << command << "\n" << std::flush;
+            _message = "ERROR: Unkown command\n";
         }
 
         // Send respone
+        std::cerr << "[DEBUG] Sending response: " << _message << "\n" << std::flush;
         boost::asio::async_write(_socket, boost::asio::buffer(_message),
                                     boost::bind(&TCPConnection::handle_write, shared_from_this(),
                                         boost::asio::placeholders::error,
                                         boost::asio::placeholders::bytes_transferred));
     } else {
+        std::cerr << "[ERROR] Read error: " << error.message() << "\n" << std::flush;
         _socket.close();
     }
 }
@@ -77,13 +129,14 @@ void TCPConnection::handle_read(const boost::system::error_code& error, size_t b
 
 void TCPConnection::handle_write(const boost::system::error_code& error, size_t bytes_transferred) {
     if (!error) {
-        std::cerr << "Wrote: " << _message << std::flush;
+        std::cerr << "[DEBUG] Command sent successfully\n" << std::flush;
+        _buffer.clear();    // Clear buffer before reading response
         _socket.async_read_some(boost::asio::buffer(_buffer),
             boost::bind(&TCPConnection::handle_read, shared_from_this(),
                         boost::asio::placeholders::error,
                         boost::asio::placeholders::bytes_transferred));
     } else {
-        std::cerr << "Write error: " << error.message() << "\n";
+        std::cerr << "[ERROR] Write error: " << error.message() << "\n";
         _socket.close();
     }
 }
