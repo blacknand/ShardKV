@@ -44,6 +44,7 @@ private:
 
     tcp::acceptor _acceptor;
     KVStore _store;                 // Server owns KVStore object which is passed to TCPConnection
+    ConsistentHash _hash_ring;
     std::unordered_set<std::string> active_nodes;       // Active nodes in the cluster
     std::mutex node_mutex;
 };
