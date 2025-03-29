@@ -32,6 +32,9 @@ std::string ConsistentHash::get_node(const std::string &key) {
     uint32_t hash = this->hash_key(key);
     auto it = ring.lower_bound(hash);
 
+    // Return the address and port of the server
+    // that is closest to the hash value, if there is no appropriate value
+    // then loop back to the beginning of the hash ring and return the first node
     if (it == ring.end())
         it = ring.begin();
 

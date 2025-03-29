@@ -24,6 +24,7 @@ void TCPConnection::handle_read(const boost::system::error_code& error, size_t b
         std::string responsible_node = _hash_ring->get_node(key);   // Node that stores the key
 
         if (responsible_node != _server->self_address) {
+            // If the server is not the owner of the hash value
             _message = forward_to_node(responsible_node, request) + "\n";
         } else if (command == "JOIN" && iss >> key) {
             // If client is requesting to join active nodes
@@ -142,9 +143,10 @@ void TCPServer::handle_accept(boost::shared_ptr<TCPConnection> new_connection, c
 
 
 void TCPServer::handle_client(tcp::socket socket) {
-    auto connection = TCPConnection::create(static_cast<boost::asio::io_context&>(socket.get_executor().context()));
-    connection->socket() = std::move(socket);
-    connection->start(_store, connection->_server, connection->_hash_ring);
+    auto new_connection = TCPConnection::create(static_cast<boost::asio::io_context&>(socket.get_executor().context()));
+    new_connection->socket() = std::move(socket);
+    // pretty sure _store needs to be a KVStore *
+    new_connection->start(_store, this, &_hash_ring);
 }
 
 
