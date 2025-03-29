@@ -19,14 +19,9 @@ void TCPConnection::handle_read(const boost::system::error_code& error, size_t b
         std::istringstream iss(request);
         iss >> command >> key;
 
-        std::cerr << "Read: " << std::string(_buffer.data(), bytes_transferred) << "\n";
+        std::cerr << "Read: " << std::string(_buffer.data(), bytes_transferred) << "\n" << std::flush;
 
-        std::string responsible_node = _hash_ring->get_node(key);   // Node that stores the key
-
-        if (responsible_node != _server->self_address) {
-            // If the server is not the owner of the hash value
-            _message = forward_to_node(responsible_node, request) + "\n";
-        } else if (command == "JOIN" && iss >> key) {
+        if (command == "JOIN" && iss >> key) {
             // If client is requesting to join active nodes
             _server->add_node(key);
             _hash_ring->add_node(key);
@@ -37,8 +32,16 @@ void TCPConnection::handle_read(const boost::system::error_code& error, size_t b
             _hash_ring->remove_node(key);
             _message = "OK\n";
         } else if (command == "PUT" && iss >> value) {
-            kv_store->put(key, value);
-            _message = "OK\n";
+            std::string responsible_node = _hash_ring->get_node(key);   // Node that stores the key
+            if (responsible_node != _server->self_address) {
+                // If the server is not the owner of the hash value
+                std::cerr << "[DEBUG] Evaluating PUT command, responsible_node: " << responsible_node 
+          << ", self_address: " << _server->self_address << "\n" << std::flush;
+                _message = forward_to_node(responsible_node, request) + "\n";
+            } else {
+                kv_store->put(key, value);
+                _message = "OK\n";
+            }
         } else if (command == "GET") {
             std::string result = kv_store->get(key);
             if (result.empty()) { 
@@ -88,25 +91,49 @@ void TCPConnection::handle_write(const boost::system::error_code& error, size_t 
 
 std::string TCPConnection::forward_to_node(const std::string &address, const std::string &message) {
     try {
-        std::string host, port;
         size_t colon = address.find(':');
-        host = address.substr(0, colon);
-        port = address.substr(colon + 1);
+        std::cerr << "[FORWARD] Attempting to resolve: " << address << "\n";
+        std::cerr << std::flush;
+        std::string host = boost::algorithm::trim_copy(address.substr(0, colon));
+        std::string port = boost::algorithm::trim_copy(address.substr(colon + 1));
+
+        if (colon == std::string::npos) {
+            std::cerr << "[ERROR] Invalid address format: " << address << "\n";
+            std::cerr << std::flush;
+            return "ERROR_FORWARDING";
+        }        
+
+        if (host.empty() || port.empty()) {
+            std::cerr << "[ERROR] Empty host or port extracted from address: " << address << "\n";
+            std::cerr << std::flush;
+            return "ERROR_FORWARDING";
+        }       
+        
+        std::cerr << "[DEBUG] Forwarding to host: " << host << ", port: " << port << "\n";
+        std::cerr << std::flush;
 
         // NOTE: This is a blocking call, if we scaled to thousands of clients this
         // will need to be asynchronous
 
-        // Create new TCP connection
         boost::asio::io_context io_context;
         tcp::resolver resolver(io_context);
 
-        // Use the resolver to get a list of endpoints
-        tcp::resolver::query query(host, port);
-        tcp::resolver::iterator endpoint_iter = resolver.resolve(query);
+        std::cerr << "[DEBUG] Raw address: " << address << "\n";
+        std::cerr << "[DEBUG] Parsed host: " << host << "\n";
+        std::cerr << "[DEBUG] Parsed port: " << port << "\n";
+        std::cerr << "[DEBUG] Resolving..." << std::flush << "\n";
+
+        auto endpoints = resolver.resolve(tcp::resolver::query{
+            host,
+            port,
+            boost::asio::ip::resolver_query_base::numeric_service
+        });
+
+        std::cerr << "[DEBUG] Resolved endpoints successfully" << std::flush << "\n";
 
         // Connect the endpoints by creating a socket
         tcp::socket socket(io_context);
-        boost::asio::connect(socket, endpoint_iter);
+        boost::asio::connect(socket, endpoints);
 
         boost::asio::write(socket, boost::asio::buffer(message + "\n"));
         boost::asio::streambuf response_buf;
@@ -134,7 +161,7 @@ void TCPServer::start_accept() {
 
 void TCPServer::handle_accept(boost::shared_ptr<TCPConnection> new_connection, const boost::system::error_code& error) {
     if (!error) {
-        new_connection->start(_store, this, new_connection->_hash_ring);
+        new_connection->start(_store, this, &_hash_ring);
     } else {
         std::cerr << "Accept error: " << error.message() << "\n";
     }
@@ -177,7 +204,21 @@ void TCPServer::remove_node(const std::string &address) {
 
 
 int main(int argc, char **argv) {
-    try {
+    try {   
+        int fd = open("debug.log", O_WRONLY | O_CREAT | O_APPEND, 0666);
+        if (fd == -1) {
+            perror("open");
+            return 1;
+        }
+
+        if (dup2(fd, STDERR_FILENO) == -1) {
+            perror("dup2");
+            return 1;
+        }
+
+        close(fd);
+        std::cerr << "Message should now appear in debug.log\n";
+
         boost::asio::io_context io_context;
         const int port = atoi(argv[1]);
         const std::string address = argv[2];

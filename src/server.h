@@ -9,6 +9,7 @@
 #include <boost/bind/bind.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
+#include <boost/algorithm/string.hpp>
 #include <mutex>
 #include <thread>
 #include <iostream>
@@ -16,6 +17,9 @@
 #include <sstream>
 #include <vector>
 #include <unordered_set>
+#include <fstream>
+#include <fcntl.h>
+#include <unistd.h>
 
 
 using boost::asio::ip::tcp;

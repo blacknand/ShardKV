@@ -7,7 +7,8 @@
 #include <boost/bind/bind.hpp>
 #include <iostream>
 #include <string>
-
+#include <fcntl.h>
+#include <unistd.h>
 
 using boost::asio::ip::tcp;
 
