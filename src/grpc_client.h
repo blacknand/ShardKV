@@ -10,7 +10,7 @@
 
 #include "../build/binary/shardkv.grpc.pb.h"
 
-Class AsyncKVClient {
+class AsyncKVClient {
 public:
     AsyncKVClient(std::shared_ptr<grpc::Channel> channel);
     void put_async(const std::string& key, const std::string& value, std::function<void(const std::string&)> callback);
@@ -25,12 +25,13 @@ private:
         grpc::Status status;
         std::unique_ptr<grpc::ClientAsyncResponseReader<shardkv::KVResponse>> response_reader;
         std::function<void(const std::string&)> callback;
-    }
+    };
+
     void async_complete_rpc();
     std::unqiue_ptr<shardkv::KVService::Stub> stub_;
     grpc::CompletionQueue cq_;
     std::thread worker_;
-    std::atomc<bool> running_ = true;
+    std::atomic<bool> running_ = true;
 };
 
 #endif
