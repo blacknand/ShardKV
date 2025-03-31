@@ -4,8 +4,8 @@ project(ShardKV)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-# Find Boost with required components (build uses Boost.Asio)
-find_package(Boost REQUIRED COMPONENTS system)
+find_package(Boost REQUIRED COMPONENTS system)    # For Boost.Asio
+find_package(gRPC CONFIG REQUIRED)                # Find gRPC canonical way
 
 # Add GoogleTest as a dependency
 include(FetchContent)
@@ -16,6 +16,15 @@ FetchContent_Declare(
 # For Windows: Prevent overriding the parent project's compiler/linker settings when dealing with GoogleTest
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
+
+# Add gRPC as a dependency
+FetchContent_Declare(
+  gRPC
+  GIT_REPOSITORY https://github.com/grpc/grpc
+  GIT_TAG        1.71.0   # Latest as of Mon 31st March 2025
+)
+set(FETCHCONTENT_QUIET OFF)
+FetchContent_MakeAvailable(gRPC)
 
 set(SHARED_SOURCES
     src/kv_store.cpp
@@ -37,7 +46,7 @@ add_executable(shardkv_client
 )
 
 find_package(Boost REQUIRED COMPONENTS system)
-target_link_libraries(shardkv_server PRIVATE Boost::system pthread)
+target_link_libraries(shardkv_server PRIVATE Boost::system pthread grpc++)
 target_link_libraries(shardkv_client PRIVATE Boost::system pthread)
 
 
