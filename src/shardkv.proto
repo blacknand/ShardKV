@@ -1,0 +1,26 @@
+syntax="proto 3";
+
+package shardkv;
+
+service ShardKV {
+    rpc Put(PutRequest) returns (KVResponse);
+    rpc Get(GetRequest) returns (KVResponse);
+    rpc Delete(DeleteRequest) returns (KVResponse);
+}
+
+message PutRequest {
+  string key = 1;
+  string value = 2;
+}
+
+message GetRequest {
+  string key = 1;
+}
+
+message DeleteRequest {
+  string key = 1;
+}
+
+message KVResponse {
+  string result = 1;
+}
