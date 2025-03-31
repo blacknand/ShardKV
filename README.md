@@ -16,6 +16,7 @@ installed locally.
 - gRPC
 - GoogleTest
 - WSL if on Windows (for the Bash shell scripts)
+- `MurmurHash3.cpp` & `MurmurHash3.h` (for the `MurmurHash3_x86_32()` function)
 > **Note:** When ShardKV is fully released, I will be creating a docker container for it to prevent anyone from having to install all of these dependencies, apart from obviously needing docker.
 ## Usage
 - To run the ShardKV server application

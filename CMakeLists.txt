@@ -47,7 +47,7 @@ add_executable(shardkv_client
 
 find_package(Boost REQUIRED COMPONENTS system)
 target_link_libraries(shardkv_server PRIVATE Boost::system pthread grpc++)
-target_link_libraries(shardkv_client PRIVATE Boost::system pthread)
+target_link_libraries(shardkv_client PRIVATE Boost::system pthread grpc++)
 
 
 # Enable testing

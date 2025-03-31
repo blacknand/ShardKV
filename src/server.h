@@ -5,11 +5,18 @@
 #include "kv_store.h"
 #include "consistent_hash.h"
 
+// Boost.Asio and other Boost headers
 #include <boost/asio.hpp>
 #include <boost/bind/bind.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/algorithm/string.hpp>
+
+// gRPC headers
+#include "shardkv.ph.h"
+#include "shardkv.grpc.ph.h"
+
+// C++ standard headers
 #include <mutex>
 #include <thread>
 #include <iostream>
