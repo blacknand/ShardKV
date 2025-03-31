@@ -3,7 +3,15 @@ project(ShardKV)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_PREFIX_PATH "$ENV{HOME}/.local")
+set(PROTO_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+set(PROTO_GEN_DIR "${CMAKE_CURRENT_BINARY_DIR}/binary")
 
+file(MAKE_DIRECTORY ${PROTO_GEN_DIR})
+set(PROTO_FILE ${PROTO_SRC_DIR}/shardkv.proto)
+
+include(FindProtobuf)
+find_package(Protobuf REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system)    # For Boost.Asio
 find_package(gRPC CONFIG REQUIRED)                # Find gRPC canonical way
 
@@ -17,21 +25,46 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-# Add gRPC as a dependency
-FetchContent_Declare(
-  gRPC
-  GIT_REPOSITORY https://github.com/grpc/grpc
-  GIT_TAG        1.71.0   # Latest as of Mon 31st March 2025
-)
-set(FETCHCONTENT_QUIET OFF)
-FetchContent_MakeAvailable(gRPC)
-
 set(SHARED_SOURCES
     src/kv_store.cpp
     src/consistent_hash.cpp
     src/MurmurHash3.cpp
     # TODO: when implementing the raft protocol, add raft.cpp here
  )
+
+# gRPC compile command
+set(GRPC_CPP_PLUGIN "$ENV{HOME}/.local/bin/grpc_cpp_plugin")
+add_custom_command(
+  OUTPUT  ${PROTO_GEN_DIR}/shardkv.grpc.pb.cc 
+          ${PROTO_GEN_DIR}/shardkv.grpc.pb.h
+          ${PROTO_GEN_DIR}/shardkv.pb.cc
+          ${PROTO_GEN_DIR}/shardkv.pb.h
+  COMMAND ${Protobuf_PROTOC_EXECUTABLE}
+  ARGS  --grpc_out=${PROTO_GEN_DIR}
+        --cpp_out=${PROTO_GEN_DIR}
+        --plugin=protoc-gen-grpc=${GRPC_CPP_PLUGIN}
+        -I ${PROTO_SRC_DIR}
+        ${PROTO_FILE}
+  DEPENDS ${PROTO_FILE}
+  COMMENT "Generating gRPC sources"
+  VERBATIM
+)
+
+add_custom_target(generate_grpc_files
+  DEPENDS
+    ${PROTO_GEN_DIR}/shardkv.pb.cc
+    ${PROTO_GEN_DIR}/shardkv.grpc.pb.cc
+)
+
+add_library(shardkv_grpc
+  ${PROTO_GEN_DIR}/shardkv.grpc.pb.cc
+  ${PROTO_GEN_DIR}/shardkv.pb.cc
+)
+
+add_dependencies(shardkv_grpc generate_grpc_files)
+
+target_include_directories(shardkv_grpc PUBLIC ${PROTO_GEN_DIR} ${Protobuf_INCLUDE_DIRS})
+target_link_libraries(shardkv_grpc PUBLIC gRPC::grpc++ protobuf::libprotobuf)
 
 # ShardKV server target
 add_executable(shardkv_server
@@ -46,9 +79,19 @@ add_executable(shardkv_client
 )
 
 find_package(Boost REQUIRED COMPONENTS system)
-target_link_libraries(shardkv_server PRIVATE Boost::system pthread grpc++)
-target_link_libraries(shardkv_client PRIVATE Boost::system pthread grpc++)
-
+target_link_libraries(shardkv_server
+                        PRIVATE Boost::system 
+                        pthread 
+                        gRPC::grpc++ 
+                        shardkv_grpc
+)
+target_link_libraries(shardkv_client 
+                        PRIVATE 
+                        Boost::system 
+                        pthread 
+                        gRPC::grpc++ 
+                        shardkv_grpc
+)
 
 # Enable testing
 enable_testing()
@@ -71,4 +114,4 @@ add_executable(test_kvstore
 
 target_include_directories(test_kvstore PRIVATE src)  
 target_link_libraries(test_kvstore PRIVATE gtest gtest_main)
-add_test(NAME KVStoreTest COMMAND test_kvstore)
+add_test(NAME KVStoreTest COMMAND test_kvstorev)

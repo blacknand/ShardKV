@@ -1,10 +1,17 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
-
+// Boost headers
 #include <boost/asio.hpp>
 #include <boost/array.hpp>
 #include <boost/bind/bind.hpp>
+
+// gRPC headers
+// #include "shardkv.ph.h"
+// #include "shardkv.grpc.ph.h"
+// #include <grpcpp/grpcpp.h>
+
+// C++ std headers
 #include <iostream>
 #include <string>
 #include <fcntl.h>
