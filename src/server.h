@@ -56,9 +56,8 @@ private:
     void handle_accept(boost::shared_ptr<TCPConnection> new_connection, const boost::system::error_code& error);
 
     tcp::acceptor _acceptor;
-    KVStore _store;                 // Server owns KVStore object which is passed to TCPConnection
-    // ConsistentHash _hash_ring;
-    std::unordered_set<std::string> active_nodes;       // Active nodes in the cluster
+    KVStore _store;                 
+    std::unordered_set<std::string> active_nodes;       
     std::mutex node_mutex;
 };
 
@@ -71,7 +70,6 @@ public:
         return pointer(new TCPConnection(io_context));
     }
     tcp::socket& socket() { return _socket; }
-    // void start(KVStore& store, TCPServer* server, ConsistentHash* hash_ring);
     void start(KVStore& store, TCPServer* server);
 
     tcp::socket _socket;
