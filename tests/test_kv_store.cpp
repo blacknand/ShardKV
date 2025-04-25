@@ -4,7 +4,8 @@
 #include <thread>
 
 
-TEST(KVStoreTest, BasicOperations) {
+TEST(KVStoreTest, BasicOperations) 
+{
     KVStore store;
 
     store.put("key1", "value1");
@@ -21,7 +22,8 @@ TEST(KVStoreTest, BasicOperations) {
 }
 
 
-TEST(KVStoreTest, ThreadSafety) {
+TEST(KVStoreTest, ThreadSafety) 
+{
     KVStore store;
 
     std::thread t1([&]() { store.put("key2", "value2"); });
@@ -35,7 +37,8 @@ TEST(KVStoreTest, ThreadSafety) {
 }
 
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv) 
+{
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

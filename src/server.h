@@ -5,18 +5,19 @@
 #include "kv_store.h"
 #include "consistent_hash.h"
 
-// Boost.Asio and other Boost headers
 #include <boost/asio.hpp>
 #include <boost/bind/bind.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/algorithm/string.hpp>
 
-// gRPC headers
-#include "shardkv.ph.h"
-#include "shardkv.grpc.ph.h"
+// #include "../build/binary/shardkv.grpc.pb.h"
+// #include <grpcpp/create_channel.h>
+// #include <grpcpp/security/credentials.h>
+// #include <grpcpp/grpcpp.h>
+// #include "shardkv.grpc.ph.h"
+// #include <grpcpp/grpcpp.h>
 
-// C++ standard headers
 #include <mutex>
 #include <thread>
 #include <iostream>
@@ -35,7 +36,8 @@ std::mutex console_mutex;
 class TCPConnection;
 
 
-class TCPServer {
+class TCPServer 
+{
 public:
     // Initialise exceptor with io_context for main event loop and IP address with port number
     TCPServer(boost::asio::io_context& io_context, unsigned short port, const std::string &address)
@@ -55,20 +57,22 @@ private:
 
     tcp::acceptor _acceptor;
     KVStore _store;                 // Server owns KVStore object which is passed to TCPConnection
-    ConsistentHash _hash_ring;
+    // ConsistentHash _hash_ring;
     std::unordered_set<std::string> active_nodes;       // Active nodes in the cluster
     std::mutex node_mutex;
 };
 
 
-class TCPConnection : public boost::enable_shared_from_this<TCPConnection> {
+class TCPConnection : public boost::enable_shared_from_this<TCPConnection> 
+{
 public:
     typedef boost::shared_ptr<TCPConnection> pointer;
     static pointer create(boost::asio::io_context& io_context) {
         return pointer(new TCPConnection(io_context));
     }
     tcp::socket& socket() { return _socket; }
-    void start(KVStore& store, TCPServer* server, ConsistentHash* hash_ring);
+    // void start(KVStore& store, TCPServer* server, ConsistentHash* hash_ring);
+    void start(KVStore& store, TCPServer* server);
 
     tcp::socket _socket;
     std::string _message;

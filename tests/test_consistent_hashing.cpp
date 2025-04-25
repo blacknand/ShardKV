@@ -3,7 +3,8 @@
 #include <gtest/gtest.h>
 
 
-class ConsistentHashTest : public ::testing::Test {
+class ConsistentHashTest : public ::testing::Test 
+{
 protected:
     ConsistentHash hash;
 
@@ -15,7 +16,8 @@ protected:
 };
 
 
-TEST_F(ConsistentHashTest, ReturnConsistentHash) {
+TEST_F(ConsistentHashTest, ReturnConsistentHash) 
+{
     std::string key = "test_key";
     uint32_t hash1 = hash.hash_key(key);
     uint32_t hash2 = hash.hash_key(key);
@@ -24,7 +26,8 @@ TEST_F(ConsistentHashTest, ReturnConsistentHash) {
 }
 
 
-TEST_F(ConsistentHashTest, NodeIsAssigned) {
+TEST_F(ConsistentHashTest, NodeIsAssigned) 
+{
     std::string key = "test_key";
     std::string node = hash.get_node(key);
 
@@ -32,7 +35,8 @@ TEST_F(ConsistentHashTest, NodeIsAssigned) {
 }
 
 
-TEST_F(ConsistentHashTest, NodesAddedCorrectly) {
+TEST_F(ConsistentHashTest, NodesAddedCorrectly) 
+{
     hash.add_node("test_node");
 
     // Check if we can get nodes from the hash ring
@@ -43,7 +47,8 @@ TEST_F(ConsistentHashTest, NodesAddedCorrectly) {
 }
 
 
-TEST_F(ConsistentHashTest, NodesRemovedCorrectly) {
+TEST_F(ConsistentHashTest, NodesRemovedCorrectly) 
+{
     hash.remove_node("node2");
 
     std::string key = "test_key";
@@ -53,7 +58,8 @@ TEST_F(ConsistentHashTest, NodesRemovedCorrectly) {
 }
 
 
-TEST_F(ConsistentHashTest, LoadDistributionAfterRemoval) {
+TEST_F(ConsistentHashTest, LoadDistributionAfterRemoval) 
+{
     std::string key = "sample_key";
     std::string old_node = hash.get_node(key);
 
@@ -64,7 +70,8 @@ TEST_F(ConsistentHashTest, LoadDistributionAfterRemoval) {
 }
 
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv) 
+{
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

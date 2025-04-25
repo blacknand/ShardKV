@@ -5,7 +5,8 @@
 #include <mutex>
 #include <string>
 
-class KVStore {
+class KVStore 
+{
 public:
     KVStore();
     void put(const std::string &key, const std::string &value);
