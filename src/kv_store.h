@@ -4,8 +4,11 @@
 #include <unordered_map>
 #include <mutex>
 #include <string>
+#include <vector>
+#include <functional>
 
-class KVStore 
+
+class KVStore
 {
 public:
     KVStore();
@@ -14,8 +17,11 @@ public:
     int remove(const std::string& key);
 
 private:
-    std::unordered_map<std::string, std::string> store;
-    std::mutex store_mutex;
+    static constexpr size_t NUM_SHARDS = 16;
+    std::vector<std::unordered_map<std::string, std::string>> shards;
+    std::vector<std::shared_mutex> shared_mutexes;
+
+    size_t get_shard_index(const std::string& key) const;
 };
 
 #endif  // KV_STORE_H
