@@ -15,7 +15,6 @@ class ConsistentHash
 public:
     explicit ConsistentHash(int vnodes = 200, uint32_t seed = 42) : vnode_count(vnodes), hash_seed(seed) {}
 
-    static uint32_t hash_key(const std::string &key);
     void add_node(const std::string &node);
     void remove_node(const std::string &node);
     std::unordered_set<std::string> get_nodes();
