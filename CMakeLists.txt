@@ -29,7 +29,7 @@ set(SHARED_SOURCES
     src/kv_store.cpp
     src/consistent_hash.cpp
     src/MurmurHash3.cpp
-    # TODO: when implementing the raft protocol, add raft.cpp here
+    src/hash_utils.h
  )
 
 # gRPC compile command
@@ -99,13 +99,13 @@ enable_testing()
 # Test consistent hashing
 add_executable(test_consistent_hashing
                 src/consistent_hash.cpp
+                src/hash_utils.h
                 src/MurmurHash3.cpp
                 tests/test_consistent_hashing.cpp)       
 
 target_include_directories(test_consistent_hashing PRIVATE src)
 target_link_libraries(test_consistent_hashing PRIVATE gtest gtest_main)
 add_test(NAME TestConsistentHashing COMMAND test_consistent_hashing)
-
 
 # Add GoogleTest for unit testing
 add_executable(test_kvstore 
@@ -115,3 +115,20 @@ add_executable(test_kvstore
 target_include_directories(test_kvstore PRIVATE src)  
 target_link_libraries(test_kvstore PRIVATE gtest gtest_main)
 add_test(NAME KVStoreTest COMMAND test_kvstorev)
+
+# Test gRPC server and client
+add_executable(test_grpc
+                tests/test_grpc.cpp
+                src/kv_store.cpp
+                src/grpc_server.cpp
+                src/grpc_client.cpp
+)
+
+target_include_directories(test_grpc PRIVATE src)
+target_link_libraries(test_grpc 
+                        gtest gtest_main
+                        grpc++ 
+                        protobuf::libprotobuf 
+                        shardkv_grpc
+)
+add_test(NAME TestGrpc COMMAND test_grpc)

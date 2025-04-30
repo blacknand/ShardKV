@@ -1,8 +1,11 @@
 #include "../src/consistent_hash.h"
+#include "../src/hash_utils.h"
 
 #include <gtest/gtest.h>
 
+#define SEED 42
 
+// TODO: must fix test for updated consistent_hash
 class ConsistentHashTest : public ::testing::Test 
 {
 protected:
@@ -19,8 +22,8 @@ protected:
 TEST_F(ConsistentHashTest, ReturnConsistentHash) 
 {
     std::string key = "test_key";
-    uint32_t hash1 = hash.hash_key(key);
-    uint32_t hash2 = hash.hash_key(key);
+    uint32_t hash1 = HashUtils::hash_key(key, SEED);
+    uint32_t hash2 = HashUtils::hash_key(key, SEED);
 
     EXPECT_EQ(hash1, hash2) << "Hash function should be deterministic" << std::endl;
 }
