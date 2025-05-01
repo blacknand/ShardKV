@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 4.0.1)
 project(ShardKV)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -10,9 +10,11 @@ set(PROTO_GEN_DIR "${CMAKE_CURRENT_BINARY_DIR}/binary")
 file(MAKE_DIRECTORY ${PROTO_GEN_DIR})
 set(PROTO_FILE ${PROTO_SRC_DIR}/shardkv.proto)
 
+cmake_policy(SET CMP0135 NEW) #CMake policyt 0135 DOWNLOAD_EXTRACT_TIMESTAMP
+
 include(FindProtobuf)
 find_package(Protobuf REQUIRED)
-find_package(Boost REQUIRED COMPONENTS system)    # For Boost.Asio
+find_package(Boost CONFIG REQUIRED COMPONENTS system)    # For Boost.Asio
 find_package(gRPC CONFIG REQUIRED)                # Find gRPC canonical way
 
 # Add GoogleTest as a dependency
@@ -78,7 +80,7 @@ add_executable(shardkv_client
                 ${SHARED_SOURCES}
 )
 
-find_package(Boost REQUIRED COMPONENTS system)
+# shardkv_grpc for the generated gRPC library
 target_link_libraries(shardkv_server
                         PRIVATE Boost::system 
                         pthread 
@@ -114,7 +116,7 @@ add_executable(test_kvstore
 
 target_include_directories(test_kvstore PRIVATE src)  
 target_link_libraries(test_kvstore PRIVATE gtest gtest_main)
-add_test(NAME KVStoreTest COMMAND test_kvstorev)
+add_test(NAME KVStoreTest COMMAND test_kv_store)
 
 # Test gRPC server and client
 add_executable(test_grpc
