@@ -7,7 +7,8 @@ AsyncKVClient::AsyncKVClient(std::shared_ptr<grpc::Channel> channel) :
 }
 
 
-void AsyncKVClient::put_async(const std::string& key, const std::string& value, std::function<void(const std::string&)> callback) {
+void AsyncKVClient::put_async(const std::string& key, const std::string& value, std::function<void(const std::string&)> callback) 
+{
     auto* call = new AsyncCall;
     call->callback = callback;
     
@@ -20,7 +21,8 @@ void AsyncKVClient::put_async(const std::string& key, const std::string& value, 
 }
 
 
-void AsyncKVClient::get_async(const std::string& key, std::function<void(const std::string&)> callback) {
+void AsyncKVClient::get_async(const std::string& key, std::function<void(const std::string&)> callback) 
+{
     auto* call = new AsyncCall;
     call->callback = callback;
     
@@ -32,7 +34,8 @@ void AsyncKVClient::get_async(const std::string& key, std::function<void(const s
 }
 
 
-void AsyncKVClient::remove_async(const std::string& key, std::function<void(const std::string&)> callback) {
+void AsyncKVClient::remove_async(const std::string& key, std::function<void(const std::string&)> callback) 
+{
     auto* call = new AsyncCall;
     call->callback = callback;
     
@@ -44,7 +47,8 @@ void AsyncKVClient::remove_async(const std::string& key, std::function<void(cons
 }
 
 
-void AsyncKVClient::async_complete_rpc() {
+void AsyncKVClient::async_complete_rpc() 
+{
     void* got_tag;
     bool ok = false;
 
@@ -61,7 +65,8 @@ void AsyncKVClient::async_complete_rpc() {
 }
 
 
-void AsyncKVClient::shutdown() {
+void AsyncKVClient::shutdown() 
+{
     running_ = false;
     cq_.shutdown();
     if (worker_.joinable()) worker_.join();

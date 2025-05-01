@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <shared_mutex>
 
 
 class KVStore
@@ -18,6 +19,7 @@ public:
 
 private:
     static constexpr size_t NUM_SHARDS = 16;
+    static constexpr uint32_t HASH_SEED = 42;
     std::vector<std::unordered_map<std::string, std::string>> shards;
     std::vector<std::shared_mutex> shared_mutexes;
 

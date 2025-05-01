@@ -2,6 +2,7 @@
 #define CONSISTENT_HASH_H
 
 #include "MurmurHash3.h"
+#include "hash_utils.h"
 
 #include <iostream>
 #include <string>

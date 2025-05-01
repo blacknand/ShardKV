@@ -1,8 +1,8 @@
-syntax="proto 3";
+syntax="proto3";
 
 package shardkv;
 
-service ShardKV {
+service KVService {
     rpc Put(PutRequest) returns (KVResponse);
     rpc Get(GetRequest) returns (KVResponse);
     rpc Delete(DeleteRequest) returns (KVResponse);

@@ -19,6 +19,7 @@
 // #include <grpcpp/grpcpp.h>
 
 #include <mutex>
+#include <shared_mutex>
 #include <thread>
 #include <iostream>
 #include <string>
@@ -39,19 +40,25 @@ class TCPConnection;
 class TCPServer 
 {
 public:
-    // Initialise exceptor with io_context for main event loop and IP address with port number
     TCPServer(boost::asio::io_context& io_context, unsigned short port, const std::string &address)
-        : _acceptor(io_context, tcp::endpoint(tcp::v4(), port)), self_address(address) {
-        start_accept();
-    }    
+        : _acceptor(io_context, 
+          tcp::endpoint(tcp::v4(), port)), 
+          self_address(address), 
+          _nodes_strand(boost::asio::make_strand(io_context))
+        {
+            start_accept();
+        }    
 
     void run_server(boost::asio::io_context& context, int port, int threads);
     void handle_client(tcp::socket socket);
     void add_node(const std::string &address);
     void remove_node(const std::string &address);
+    
     std::string self_address;
 
 private:
+    friend class TCPConnection;     // For _nodes_strand
+
     void start_accept();
     void handle_accept(boost::shared_ptr<TCPConnection> new_connection, const boost::system::error_code& error);
 
@@ -59,6 +66,7 @@ private:
     KVStore _store;                 
     std::unordered_set<std::string> active_nodes;       
     std::mutex node_mutex;
+    boost::asio::strand<boost::asio::io_context::executor_type> _nodes_strand;
 };
 
 

@@ -40,8 +40,15 @@ void TCPConnection::handle_read(const boost::system::error_code& error, size_t b
             if (!key.empty()) {
                 // If client is requesting to leave active nodes
                 std::cerr << "[DEBUG] Removing node: " << key << "\n" << std::flush;
-                _server->remove_node(key);
-                _message = "OK\n";
+                boost::asio::post(_server->_nodes_strand, [this, key]() {
+                    _server->remove_node(key);
+                    _message = "OK\n";
+                    boost::asio::async_write(_socket, boost::asio::buffer(_message),
+                        boost::bind(&TCPConnection::handle_write, shared_from_this(),
+                                        boost::asio::placeholders::error,
+                                        boost::asio::placeholders::bytes_transferred));
+                });
+                return;
             } else {
                 std::cerr << "[ERROR] LEAVE command missing address\n" << std::flush;
                 _message = "ERROR: Missing address for LEAVE\n";
@@ -201,14 +208,17 @@ void TCPServer::run_server(boost::asio::io_context& context, int port, int threa
 
 void TCPServer::add_node(const std::string &address) 
 {
-    std::lock_guard<std::mutex> lock(node_mutex);
-    active_nodes.insert(address);
+    boost::asio::post(_nodes_strand, [this, address]() {
+        active_nodes.insert(address);
+    });
 }
 
 
 void TCPServer::remove_node(const std::string &address) 
 {
-    active_nodes.erase(address);
+    boost::asio::post(_nodes_strand, [this, address]() {
+        active_nodes.erase(address);
+    });
 }
 
 

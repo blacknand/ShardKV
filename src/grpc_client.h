@@ -6,11 +6,13 @@
 #include <memory>
 #include <string>
 #include <functional>
-#include <grpcpp/grcpcpp.h>
+#include <grpcpp/grpcpp.h>
 
 #include "../build/binary/shardkv.grpc.pb.h"
+#include "kv_store.h"
 
-class AsyncKVClient {
+class AsyncKVClient 
+{
 public:
     AsyncKVClient(std::shared_ptr<grpc::Channel> channel);
     void put_async(const std::string& key, const std::string& value, std::function<void(const std::string&)> callback);
@@ -28,7 +30,7 @@ private:
     };
 
     void async_complete_rpc();
-    std::unqiue_ptr<shardkv::KVService::Stub> stub_;
+    std::unique_ptr<shardkv::KVService::Stub> stub_;
     grpc::CompletionQueue cq_;
     std::thread worker_;
     std::atomic<bool> running_ = true;

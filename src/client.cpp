@@ -1,12 +1,14 @@
 #include "client.h"
 
 
-void TCPClient::start() {
+void TCPClient::start() 
+{
     _io_context.run();
 }
 
 
-void TCPClient::handle_resolve(const boost::system::error_code& error, tcp::resolver::iterator endpoint_iterator) {
+void TCPClient::handle_resolve(const boost::system::error_code& error, tcp::resolver::iterator endpoint_iterator) 
+{
     if (!error) {
         boost::asio::async_connect(_socket, endpoint_iterator,
             boost::bind(&TCPClient::handle_connect, this,
@@ -17,7 +19,8 @@ void TCPClient::handle_resolve(const boost::system::error_code& error, tcp::reso
 }
 
 
-void TCPClient::handle_connect(const boost::system::error_code& error) {
+void TCPClient::handle_connect(const boost::system::error_code& error) 
+{
     if (!error) {
         _socket.set_option(boost::asio::ip::tcp::no_delay(true));  // Disable Nagle’s
         std::string command;
@@ -33,7 +36,8 @@ void TCPClient::handle_connect(const boost::system::error_code& error) {
 }
 
 
-void TCPClient::handle_read(const boost::system::error_code& error, size_t bytes_transferred) {
+void TCPClient::handle_read(const boost::system::error_code& error, size_t bytes_transferred) 
+{
     if (!error) {
         std::istream is(&_buffer);
             std::string response;
@@ -66,7 +70,8 @@ void TCPClient::handle_read(const boost::system::error_code& error, size_t bytes
 }
 
 
-void TCPClient::handle_write(const boost::system::error_code& error, size_t /*bytes_transferred*/) {
+void TCPClient::handle_write(const boost::system::error_code& error, size_t /*bytes_transferred*/) 
+{
     if (!error) {
         boost::asio::async_read_until(_socket, _buffer, "\n",
                     boost::bind(&TCPClient::handle_read, this,
@@ -81,7 +86,8 @@ void TCPClient::handle_write(const boost::system::error_code& error, size_t /*by
 }
 
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv) 
+{
     try {
         int fd = open("debug.log", O_WRONLY | O_CREAT | O_APPEND, 0666);
         if (fd == -1) {

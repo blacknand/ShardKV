@@ -1,17 +1,14 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
-// Boost headers
 #include <boost/asio.hpp>
 #include <boost/array.hpp>
 #include <boost/bind/bind.hpp>
 
-// gRPC headers
 // #include "shardkv.ph.h"
 // #include "shardkv.grpc.ph.h"
 // #include <grpcpp/grpcpp.h>
 
-// C++ std headers
 #include <iostream>
 #include <string>
 #include <fcntl.h>
@@ -20,7 +17,8 @@
 using boost::asio::ip::tcp;
 
 
-class TCPClient {
+class TCPClient 
+{
 public:
     TCPClient(boost::asio::io_context& io_context, const std::string& host, const std::string& port)
         : _io_context(io_context), _socket(io_context), _resolver(io_context) {
