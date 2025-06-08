@@ -6,24 +6,32 @@ void TCPConnection::start(KVStore& store, TCPServer* server)
     kv_store = &store;
     _server = server;
     // Start async reading of data from the client immediately
-    _socket.async_read_some(boost::asio::buffer(_buffer),
-        boost::bind(&TCPConnection::handle_read, shared_from_this(),
-                    boost::asio::placeholders::error,
-                    boost::asio::placeholders::bytes_transferred));
+    boost::asio::post(_strand, [self = shared_from_this()] {
+        boost::asio::async_read_until(self->_socket, self->_buffer, "\n",
+            boost::asio::bind_executor(self->_strand,
+                [self](const boost::system::error_code& error, size_t bytes_transferred) {
+                    self->handle_read(error, bytes_transferred);
+                }));
+    });
 }
 
 
-void TCPConnection::handle_read(const boost::system::error_code& error, size_t bytes_transferred) 
+void TCPConnection::handle_read(const boost::system::error_code& error, size_t /*bytes_transferred*/) 
 {
     if (!error) {
-        std::string request(_buffer.data(), bytes_transferred);
-        request = boost::algorithm::trim_copy(request);
+        // Extract data from boost::asio::const_buffer
+        std::istream is(&_buffer);
+        std::string request;
+        std::getline(is, request);
+        request.erase(0, request.find_first_not_of(" \t\r\n"));
+        request.erase(request.find_last_not_of(" \t\r\n") + 1);
 
         if (request.empty()) {
-            _socket.async_read_some(boost::asio::buffer(_buffer),
-                boost::bind(&TCPConnection::handle_read, shared_from_this(),
-                            boost::asio::placeholders::error,
-                            boost::asio::placeholders::bytes_transferred));
+            boost::asio::async_read_until(_socket, _buffer, "\n",
+                boost::asio::bind_executor(_strand,
+                    [self = shared_from_this()](const boost::system::error_code& error, size_t bytes_transferred) {
+                        self->handle_read(error, bytes_transferred);
+                    }));
             return;
         }
 
@@ -35,18 +43,21 @@ void TCPConnection::handle_read(const boost::system::error_code& error, size_t b
         std::cerr << "[DEBUG] Parsed command: '" << command << ", key: " << key << "'\n" << std::flush;
 
         if (command == "JOIN") {
-            _message = "JOIN command recieved\n";
+            _message = "JOIN command received\n";
         } else if (command == "LEAVE") {
             if (!key.empty()) {
-                // If client is requesting to leave active nodes
+                // If client is requesting to leave active nodes,
+                // post the lambda expression defined below to the _nodes_strand
+                // to synchronise access to the active_nodes hash map
                 std::cerr << "[DEBUG] Removing node: " << key << "\n" << std::flush;
-                boost::asio::post(_server->_nodes_strand, [this, key]() {
-                    _server->remove_node(key);
-                    _message = "OK\n";
-                    boost::asio::async_write(_socket, boost::asio::buffer(_message),
-                        boost::bind(&TCPConnection::handle_write, shared_from_this(),
-                                        boost::asio::placeholders::error,
-                                        boost::asio::placeholders::bytes_transferred));
+                boost::asio::post(_server->_nodes_strand, [self = shared_from_this(), key]() {
+                    self->_server->remove_node(key);
+                    self->_message = "OK\n";
+                    boost::asio::async_write(self->_socket, boost::asio::buffer(self->_message),
+                        boost::asio::bind_executor(self->_strand,
+                            [self](const boost::system::error_code& error, size_t bytes_transferred) {
+                                self->handle_write(error, bytes_transferred);
+                            }));
                 });
                 return;
             } else {
@@ -54,9 +65,12 @@ void TCPConnection::handle_read(const boost::system::error_code& error, size_t b
                 _message = "ERROR: Missing address for LEAVE\n";
             }
         } else if (command == "PUT") {
+            // Extract data from boost::asio::const_buffer
             std::string rest_of_line;
             std::getline(iss, rest_of_line);
-            value = boost::algorithm::trim_copy(rest_of_line);
+            value = rest_of_line;
+            value.erase(0, value.find_first_not_of(" \t\r\n"));
+            value.erase(value.find_last_not_of(" \t\r\n") + 1);
 
             if (key.empty() || value.empty()) {
                 std::cerr << "[ERROR] PUT command missing key or value\n" << std::flush;
@@ -95,9 +109,10 @@ void TCPConnection::handle_read(const boost::system::error_code& error, size_t b
             std::cerr << "[DEBUG] Closing connection per client request\n" << std::flush;
             _message = "CLOSING_SOCKET\n";
             boost::asio::async_write(_socket, boost::asio::buffer(_message),
-                boost::bind(&TCPConnection::handle_write, shared_from_this(),
-                            boost::asio::placeholders::error,
-                            boost::asio::placeholders::bytes_transferred));
+                boost::asio::bind_executor(_strand,
+                    [self = shared_from_this()](const boost::system::error_code& error, size_t bytes_transferred) {
+                        self->handle_write(error, bytes_transferred);
+                    }));
             _socket.close();
             return;
         } else {
@@ -108,9 +123,10 @@ void TCPConnection::handle_read(const boost::system::error_code& error, size_t b
         // Send respone
         std::cerr << "[DEBUG] Sending response: " << _message << "\n" << std::flush;
         boost::asio::async_write(_socket, boost::asio::buffer(_message),
-                                    boost::bind(&TCPConnection::handle_write, shared_from_this(),
-                                        boost::asio::placeholders::error,
-                                        boost::asio::placeholders::bytes_transferred));
+            boost::asio::bind_executor(_strand,
+                [self = shared_from_this()](const boost::system::error_code& error, size_t bytes_transferred) {
+                    self->handle_write(error, bytes_transferred);
+                }));
     } else {
         std::cerr << "[ERROR] Read error: " << error.message() << "\n" << std::flush;
         _socket.close();
@@ -118,15 +134,15 @@ void TCPConnection::handle_read(const boost::system::error_code& error, size_t b
 }
 
 
-void TCPConnection::handle_write(const boost::system::error_code& error, size_t bytes_transferred) 
+void TCPConnection::handle_write(const boost::system::error_code& error, size_t /*bytes_transferred*/) 
 {
     if (!error) {
         std::cerr << "[DEBUG] Command sent successfully\n" << std::flush;
-        // _buffer.clear();    
-        _socket.async_read_some(boost::asio::buffer(_buffer),
-            boost::bind(&TCPConnection::handle_read, shared_from_this(),
-                        boost::asio::placeholders::error,
-                        boost::asio::placeholders::bytes_transferred));
+        boost::asio::async_read_until(_socket, _buffer, "\n",
+            boost::asio::bind_executor(_strand,
+                [self = shared_from_this()](const boost::system::error_code& error, size_t bytes_transferred) {
+                    self->handle_read(error, bytes_transferred);
+                }));
     } else {
         std::cerr << "[ERROR] Write error: " << error.message() << "\n";
         _socket.close();
@@ -134,15 +150,18 @@ void TCPConnection::handle_write(const boost::system::error_code& error, size_t 
 }
 
 
-// IGNORE FOR NOW
-std::string TCPConnection::forward_to_node(const std::string &address, const std::string &message) 
+// NOTE: IGNORE FOR NOW; not implementing soon
+std::string TCPConnection::forward_to_node(std::string_view address, std::string_view message) 
 {
     try {
         size_t colon = address.find(':');
-        std::cerr << "[FORWARD] Attempting to resolve: " << address << "\n";
-        std::cerr << std::flush;
-        std::string host = boost::algorithm::trim_copy(address.substr(0, colon));
-        std::string port = boost::algorithm::trim_copy(address.substr(colon + 1));
+        std::cerr << "[FORWARD] Attempting to resolve: " << address << "\n" << std::flush;
+        std::string host = std::string(address.substr(0, colon));
+        host.erase(0, host.find_first_not_of(" \t\r\n")); 
+        host.erase(host.find_last_not_of(" \t\r\n") + 1);
+        std::string port = std::string(address.substr(colon + 1));
+        port.erase(0, port.find_first_not_of(" \t\r\n")); 
+        port.erase(port.find_last_not_of(" \t\r\n") + 1);
 
         if (colon == std::string::npos) {
             std::cerr << "[ERROR] Invalid address format: " << address << "\n";
@@ -155,6 +174,8 @@ std::string TCPConnection::forward_to_node(const std::string &address, const std
             std::cerr << std::flush;
             return "ERROR_FORWARDING";
         }       
+
+        return "NULL";
     } catch (std::exception& e) {
         std::cerr << "Forwarding error: " << e.what() << "\n";
         return "ERROR_FORWARDING";
@@ -166,12 +187,13 @@ void TCPServer::start_accept()
 {
     TCPConnection::pointer new_connection = TCPConnection::create(static_cast<boost::asio::io_context&>(_acceptor.get_executor().context()));
     _acceptor.async_accept(new_connection->socket(),
-        boost::bind(&TCPServer::handle_accept, this, new_connection,
-                    boost::asio::placeholders::error));
+    [this, new_connection](const boost::system::error_code& error) {
+            handle_accept(new_connection, error);
+        });
 }
 
 
-void TCPServer::handle_accept(boost::shared_ptr<TCPConnection> new_connection, const boost::system::error_code& error) 
+void TCPServer::handle_accept(std::shared_ptr<TCPConnection> new_connection, const boost::system::error_code& error) 
 {
     if (!error) {
         std::cout << "Client connected" << std::endl; 
@@ -206,17 +228,17 @@ void TCPServer::run_server(boost::asio::io_context& context, int port, int threa
 }
 
 
-void TCPServer::add_node(const std::string &address) 
+void TCPServer::add_node(std::string_view address) 
 {
-    boost::asio::post(_nodes_strand, [this, address]() {
+    boost::asio::post(_nodes_strand, [this, address = std::string(address)]() {
         active_nodes.insert(address);
     });
 }
 
 
-void TCPServer::remove_node(const std::string &address) 
+void TCPServer::remove_node(std::string_view address) 
 {
-    boost::asio::post(_nodes_strand, [this, address]() {
+    boost::asio::post(_nodes_strand, [this, address = std::string(address)]() {
         active_nodes.erase(address);
     });
 }
@@ -225,6 +247,11 @@ void TCPServer::remove_node(const std::string &address)
 int main(int argc, char **argv) 
 {
     try {   
+        // if (argc < 3) {
+        //     std::cerr << "USAGE: " << argv[0] << "<port> <address>\n";
+        //     return 1;
+        // }
+
         boost::asio::io_context io_context;
         const int port = atoi(argv[1]);
         const std::string address = argv[2];

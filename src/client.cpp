@@ -7,12 +7,13 @@ void TCPClient::start()
 }
 
 
-void TCPClient::handle_resolve(const boost::system::error_code& error, tcp::resolver::iterator endpoint_iterator) 
+void TCPClient::handle_resolve(const boost::system::error_code& error, tcp::resolver::results_type endpoint_iterator) 
 {
     if (!error) {
         boost::asio::async_connect(_socket, endpoint_iterator,
-            boost::bind(&TCPClient::handle_connect, this,
-                        boost::asio::placeholders::error));
+            [this](const boost::system::error_code& error, const tcp::endpoint&) {
+                handle_connect(error);
+            });
     } else {
         std::cerr << "Resolve error: " << error.message() << "\n";
     }
@@ -27,9 +28,9 @@ void TCPClient::handle_connect(const boost::system::error_code& error)
         std::cout << "Enter command: ";
         std::getline(std::cin, command);
         boost::asio::async_write(_socket, boost::asio::buffer(command + "\n"),
-            boost::bind(&TCPClient::handle_write, this,
-                        boost::asio::placeholders::error,
-                        boost::asio::placeholders::bytes_transferred));
+            [this](const boost::system::error_code& error, size_t bytes_transferred) {
+                handle_write(error, bytes_transferred);
+            });
     } else {
         std::cerr << "Connect error: " << error.message() << "\n";
     }
@@ -55,9 +56,9 @@ void TCPClient::handle_read(const boost::system::error_code& error, size_t bytes
             std::cout << "Enter command: ";
             std::getline(std::cin, command);
             boost::asio::async_write(_socket, boost::asio::buffer(command + "\n"),
-                boost::bind(&TCPClient::handle_write, this,
-                            boost::asio::placeholders::error,
-                            boost::asio::placeholders::bytes_transferred));
+                [this](const boost::system::error_code& error, size_t bytes_transferred) {
+                    handle_write(error, bytes_transferred);
+                });
     } else if (error == boost::asio::error::eof) {
         std::cout << "Server closed connection\n";
         _socket.close();
@@ -70,14 +71,13 @@ void TCPClient::handle_read(const boost::system::error_code& error, size_t bytes
 }
 
 
-void TCPClient::handle_write(const boost::system::error_code& error, size_t /*bytes_transferred*/) 
+void TCPClient::handle_write(const boost::system::error_code& error, size_t bytes_transferred) 
 {
     if (!error) {
         boost::asio::async_read_until(_socket, _buffer, "\n",
-                    boost::bind(&TCPClient::handle_read, this,
-                                boost::asio::placeholders::error,
-                                boost::asio::placeholders::bytes_transferred));
-
+            [this](const boost::system::error_code& error, size_t bytes_transferred) {
+                handle_read(error, bytes_transferred);
+            });
         std::cerr << "Wrote command\n";
     } else {
         std::cerr << "Write error: " << error.message() << "\n";
