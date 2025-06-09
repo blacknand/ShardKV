@@ -7,6 +7,8 @@
 
 #include <boost/asio.hpp>
 #include <boost/asio/read_until.hpp>
+#include <boost/asio/thread_pool.hpp>
+#include <boost/asio/executor_work_guard.hpp>
 
 // #include "../build/binary/shardkv.grpc.pb.h"
 // #include <grpcpp/create_channel.h>

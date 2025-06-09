@@ -215,16 +215,30 @@ void TCPServer::handle_client(tcp::socket socket)
 
 void TCPServer::run_server(boost::asio::io_context& context, int port, int threads) 
 {
-    std::vector<std::thread> thread_pool;
-    for (int i = 0; i < threads; ++i) {
-        thread_pool.emplace_back([&context]() { context.run(); });
-    }
+    auto work_guard = boost::asio::make_work_guard(context);
+
+    boost::asio::thread_pool pool(threads);
+    for (int i = 0; i < threads; ++i) 
+        boost::asio::post(pool, [&context](){ context.run(); });
 
     std::cout << "ShardKV server listening on port " << port << " with " << threads << " worker threads." << std::endl;
 
-    for (auto& thread : thread_pool) {
-        thread.join();
-    }
+    boost::asio::signal_set signals(context, SIGINT, SIGTERM);
+    signals.async_wait([&](const boost::system::error_code& ec, int signo) { 
+        if (!ec) {
+            std::cout << "Recieved signal: " << ec << " , stopping server" << std::endl;
+            context.stop(); 
+            if (_acceptor.is_open()) {
+                boost::system::error_code ec;
+                _acceptor.close();
+                if (ec)
+                    std::cerr << "Error closing acceptor: " << ec << std::endl;
+            }
+        } else
+            std::cerr << "Signal handler error: " << ec.message() << std::endl;
+    });
+
+    pool.join();
 }
 
 
