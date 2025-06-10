@@ -19,6 +19,21 @@ void TCPConnection::start(KVStore& store, TCPServer* server)
 void TCPConnection::handle_read(const boost::system::error_code& error, size_t /*bytes_transferred*/) 
 {
     if (!error) {
+        // Check rate limiter
+        // TODO: fix client closing immediately
+        if (!rate_limiter_.consume(1.0)) {
+            std::cerr << "[ERROR] Rate limit exceded for client" << std::flush;
+            _message = "ERROR: Rate limit exceeded\n";
+            boost::asio::async_write(_socket, boost::asio::buffer(_message),
+                boost::asio::bind_executor(_strand,
+                    [self = shared_from_this()] (const boost::system::error_code& error, size_t bytes_transferred) {
+                        self->handle_write(error, bytes_transferred);
+                        self->stop();
+                        self->_socket.close();
+                    }));
+            return;
+        }
+
         // Extract data from boost::asio::const_buffer
         std::istream is(&_buffer);
         std::string request;
@@ -30,7 +45,7 @@ void TCPConnection::handle_read(const boost::system::error_code& error, size_t /
             boost::asio::async_read_until(_socket, _buffer, "\n",
                 boost::asio::bind_executor(_strand,
                     [self = shared_from_this()](const boost::system::error_code& error, size_t bytes_transferred) {
-                        self->handle_read(error, bytes_transferred);
+                        self->handle_read(error, bytes_transferred);        // If request is empty, carry on reading
                     }));
             return;
         }
@@ -120,7 +135,6 @@ void TCPConnection::handle_read(const boost::system::error_code& error, size_t /
             _message = "ERROR: Unkown command\n";
         }
 
-        // Send respone
         std::cerr << "[DEBUG] Sending response: " << _message << "\n" << std::flush;
         boost::asio::async_write(_socket, boost::asio::buffer(_message),
             boost::asio::bind_executor(_strand,
@@ -129,6 +143,7 @@ void TCPConnection::handle_read(const boost::system::error_code& error, size_t /
                 }));
     } else {
         std::cerr << "[ERROR] Read error: " << error.message() << "\n" << std::flush;
+        stop();
         _socket.close();
     }
 }

@@ -4,6 +4,7 @@
 
 #include "kv_store.h"
 #include "consistent_hash.h"
+#include "token_bucket.h"
 
 #include <boost/asio.hpp>
 #include <boost/asio/read_until.hpp>
@@ -82,11 +83,12 @@ public:
     }
     tcp::socket& socket() { return _socket; }
     void start(KVStore& store, TCPServer* server);
+    void stop() { rate_limiter_.stop(); }
 
 private:
     friend class std::allocator<TCPConnection>;     // Allow std::make_shared access private constructor
     TCPConnection(boost::asio::io_context& io_context) 
-        : _socket(io_context), _strand(boost::asio::make_strand(io_context)) {}
+        : _socket(io_context), _strand(boost::asio::make_strand(io_context)), rate_limiter_(io_context, 100.0, 200.0) {}
     void handle_write(const boost::system::error_code& error, size_t bytes_transferred);
     void handle_read(const boost::system::error_code& error, size_t bytes_transferred);
     std::string forward_to_node(std::string_view address, std::string_view message);
@@ -98,6 +100,7 @@ private:
     TCPServer *_server = nullptr;
     ConsistentHash *_hash_ring = nullptr;
     boost::asio::strand<boost::asio::io_context::executor_type> _strand;
+    TokenBucket rate_limiter_;      // Per connection rate
 };
 
 #endif  // SERVER_H
