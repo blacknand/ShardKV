@@ -6,6 +6,7 @@ void TCPConnection::start(KVStore& store, TCPServer* server)
     kv_store = &store;
     _server = server;
     // Start async reading of data from the client immediately
+    std::cerr << "[DEBUG] starting connection" << std::flush;
     boost::asio::post(_strand, [self = shared_from_this()] {
         boost::asio::async_read_until(self->_socket, self->_buffer, "\n",
             boost::asio::bind_executor(self->_strand,
@@ -16,11 +17,12 @@ void TCPConnection::start(KVStore& store, TCPServer* server)
 }
 
 
-void TCPConnection::handle_read(const boost::system::error_code& error, size_t /*bytes_transferred*/) 
+void TCPConnection::handle_read(const boost::system::error_code& error, size_t bytes_transferred) 
 {
     if (!error) {
         // Check rate limiter
         // TODO: fix client closing immediately
+        // std::cerr << "[DEBUG] Read " << bytes_transferred << " bytes from client " << _socket.remote_endpoint().address().to_string() << ":" << _socket.remote_endpoint().port() << "\n" << std::flush;
         if (!rate_limiter_.consume(1.0)) {
             std::cerr << "[ERROR] Rate limit exceded for client" << std::flush;
             _message = "ERROR: Rate limit exceeded\n";
@@ -28,8 +30,13 @@ void TCPConnection::handle_read(const boost::system::error_code& error, size_t /
                 boost::asio::bind_executor(_strand,
                     [self = shared_from_this()] (const boost::system::error_code& error, size_t bytes_transferred) {
                         self->handle_write(error, bytes_transferred);
-                        self->stop();
-                        self->_socket.close();
+                        // self->stop();
+                        // self->_socket.close();
+                        boost::asio::async_read_until(self->_socket, self->_buffer, "\n",
+                            boost::asio::bind_executor(self->_strand,
+                                [self](const boost::system::error_code& error, size_t bytes_transferred) {
+                                    self->handle_read(error, bytes_transferred);
+                                }));
                     }));
             return;
         }
@@ -276,10 +283,10 @@ void TCPServer::remove_node(std::string_view address)
 int main(int argc, char **argv) 
 {
     try {   
-        // if (argc < 3) {
-        //     std::cerr << "USAGE: " << argv[0] << "<port> <address>\n";
-        //     return 1;
-        // }
+        if (argc < 3) {
+            std::cerr << "USAGE: " << argv[0] << "<port> <address>\n";
+            return 1;
+        }
 
         boost::asio::io_context io_context;
         const int port = atoi(argv[1]);

@@ -89,23 +89,23 @@ void TCPClient::handle_write(const boost::system::error_code& error, size_t byte
 int main(int argc, char **argv) 
 {
     try {
-        int fd = open("debug.log", O_WRONLY | O_CREAT | O_APPEND, 0666);
-        if (fd == -1) {
-            perror("open");
-            return 1;
-        }
+        // int fd = open("debug.log", O_WRONLY | O_CREAT | O_APPEND, 0666);
+        // if (fd == -1) {
+        //     perror("open");
+        //     return 1;
+        // }
 
-        if (dup2(fd, STDERR_FILENO) == -1) {
-            perror("dup2");
-            return 1;
-        }
+        // if (dup2(fd, STDERR_FILENO) == -1) {
+        //     perror("dup2");
+        //     return 1;
+        // }
 
         if (argc < 3) {
             std::cerr << "Usage: " << argv[0] << " <host> <port>\n";
             return 1;
         }
 
-        close(fd);
+        // close(fd);
         std::cerr << "Message should now appear in debug.log\n";
 
         boost::asio::io_context io_context;

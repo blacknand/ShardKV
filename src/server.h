@@ -88,7 +88,7 @@ public:
 private:
     friend class std::allocator<TCPConnection>;     // Allow std::make_shared access private constructor
     TCPConnection(boost::asio::io_context& io_context) 
-        : _socket(io_context), _strand(boost::asio::make_strand(io_context)), rate_limiter_(io_context, 100.0, 200.0) {}
+        : _socket(io_context), _strand(boost::asio::make_strand(io_context)), rate_limiter_(100.0, 200.0) {}
     void handle_write(const boost::system::error_code& error, size_t bytes_transferred);
     void handle_read(const boost::system::error_code& error, size_t bytes_transferred);
     std::string forward_to_node(std::string_view address, std::string_view message);
