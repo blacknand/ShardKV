@@ -42,12 +42,13 @@ class TCPConnection;
 class TCPServer 
 {
 public:
-    // ~TCPServer();
     TCPServer(boost::asio::io_context& io_context, unsigned short port, const std::string &address)
         :   self_address(address), 
             _acceptor(io_context, tcp::endpoint(tcp::v4(), port)), 
             _nodes_strand(boost::asio::make_strand(io_context)),
-            _io_context(io_context)
+            _io_context(io_context),
+            rate_limiter_(100.0, 200.0),
+            client_rate_limiter(10.0, 50.0)
         {
             start_accept();
         }    
@@ -70,16 +71,17 @@ private:
     std::mutex node_mutex;
     boost::asio::strand<boost::asio::io_context::executor_type> _nodes_strand;
     boost::asio::io_context& _io_context;
+    // Node wide and client rate
+    TokenBucket rate_limiter_, client_rate_limiter;      
 };
 
 
 class TCPConnection : public std::enable_shared_from_this<TCPConnection> 
 {
 public:
-    // ~TCPConnection();
     typedef std::shared_ptr<TCPConnection> pointer;
-    static pointer create(boost::asio::io_context& io_context) {
-        return std::make_shared<TCPConnection>(io_context);
+    static pointer create(boost::asio::io_context& io_context, const TokenBucket& client_rate_limit) {
+        return std::make_shared<TCPConnection>(io_context, client_rate_limit);
     }
     tcp::socket& socket() { return _socket; }
     void start(KVStore& store, TCPServer* server);
@@ -87,8 +89,9 @@ public:
 
 private:
     friend class std::allocator<TCPConnection>;     // Allow std::make_shared access private constructor
-    TCPConnection(boost::asio::io_context& io_context) 
-        : _socket(io_context), _strand(boost::asio::make_strand(io_context)), rate_limiter_(100.0, 200.0) {}
+    TCPConnection(boost::asio::io_context& io_context, const TokenBucket& client_rate_limit) 
+        : _socket(io_context), _strand(boost::asio::make_strand(io_context)), 
+            client_rate_limiter_(client_rate_limit) {}
     void handle_write(const boost::system::error_code& error, size_t bytes_transferred);
     void handle_read(const boost::system::error_code& error, size_t bytes_transferred);
     std::string forward_to_node(std::string_view address, std::string_view message);
@@ -100,7 +103,7 @@ private:
     TCPServer *_server = nullptr;
     ConsistentHash *_hash_ring = nullptr;
     boost::asio::strand<boost::asio::io_context::executor_type> _strand;
-    TokenBucket rate_limiter_;      // Per connection rate
+    TokenBucket client_rate_limiter;
 };
 
 #endif  // SERVER_H

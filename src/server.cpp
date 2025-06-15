@@ -6,7 +6,6 @@ void TCPConnection::start(KVStore& store, TCPServer* server)
     kv_store = &store;
     _server = server;
     // Start async reading of data from the client immediately
-    std::cerr << "[DEBUG] starting connection" << std::flush;
     boost::asio::post(_strand, [self = shared_from_this()] {
         boost::asio::async_read_until(self->_socket, self->_buffer, "\n",
             boost::asio::bind_executor(self->_strand,
@@ -20,126 +19,113 @@ void TCPConnection::start(KVStore& store, TCPServer* server)
 void TCPConnection::handle_read(const boost::system::error_code& error, size_t bytes_transferred) 
 {
     if (!error) {
-        // Check rate limiter
-        // TODO: fix client closing immediately
-        // std::cerr << "[DEBUG] Read " << bytes_transferred << " bytes from client " << _socket.remote_endpoint().address().to_string() << ":" << _socket.remote_endpoint().port() << "\n" << std::flush;
-        if (!rate_limiter_.consume(1.0)) {
-            std::cerr << "[ERROR] Rate limit exceded for client" << std::flush;
-            _message = "ERROR: Rate limit exceeded\n";
-            boost::asio::async_write(_socket, boost::asio::buffer(_message),
-                boost::asio::bind_executor(_strand,
-                    [self = shared_from_this()] (const boost::system::error_code& error, size_t bytes_transferred) {
-                        self->handle_write(error, bytes_transferred);
-                        // self->stop();
-                        // self->_socket.close();
-                        boost::asio::async_read_until(self->_socket, self->_buffer, "\n",
+        if (!_server->rate_limiter_.consume(1.0)) {
+            _message = "ERROR: Node rate limit exceeded\n";
+            std::cerr << "[ERROR] Node rate limit exceeded\n" << std::flush;
+        } else if (!client_rate_limiter.consume(1.0)) {
+            _message = "ERROR: Client rate limit exceeded\n";
+            std::cerr << "[ERROR] Client rate limit exceeded\n" << std::flush;
+        } else {
+            // Extract data from boost::asio::const_buffer
+            std::istream is(&_buffer);
+            std::string request;
+            std::getline(is, request);
+            request.erase(0, request.find_first_not_of(" \t\r\n"));
+            request.erase(request.find_last_not_of(" \t\r\n") + 1);
+
+            if (request.empty()) {
+                boost::asio::async_read_until(_socket, _buffer, "\n",
+                    boost::asio::bind_executor(_strand,
+                        [self = shared_from_this()](const boost::system::error_code& error, size_t bytes_transferred) {
+                            self->handle_read(error, bytes_transferred);        // If request is empty, carry on reading
+                        }));
+                return;
+            }
+
+            std::cerr << "[DEBUG] Raw request: " << request << "\n" << std::flush;
+            std::string command, key, value;
+            std::istringstream iss(request);
+            iss >> command >> key;
+
+            std::cerr << "[DEBUG] Parsed command: '" << command << ", key: " << key << "'\n" << std::flush;
+
+            if (command == "JOIN") {
+                _message = "JOIN command received\n";
+            } else if (command == "LEAVE") {
+                if (!key.empty()) {
+                    // If client is requesting to leave active nodes,
+                    // post the lambda expression defined below to the _nodes_strand
+                    // to synchronise access to the active_nodes hash map
+                    std::cerr << "[DEBUG] Removing node: " << key << "\n" << std::flush;
+                    boost::asio::post(_server->_nodes_strand, [self = shared_from_this(), key]() {
+                        self->_server->remove_node(key);
+                        self->_message = "OK\n";
+                        boost::asio::async_write(self->_socket, boost::asio::buffer(self->_message),
                             boost::asio::bind_executor(self->_strand,
                                 [self](const boost::system::error_code& error, size_t bytes_transferred) {
-                                    self->handle_read(error, bytes_transferred);
+                                    self->handle_write(error, bytes_transferred);
                                 }));
-                    }));
-            return;
-        }
+                    });
+                    return;
+                } else {
+                    std::cerr << "[ERROR] LEAVE command missing address\n" << std::flush;
+                    _message = "ERROR: Missing address for LEAVE\n";
+                }
+            } else if (command == "PUT") {
+                // Extract data from boost::asio::const_buffer
+                std::string rest_of_line;
+                std::getline(iss, rest_of_line);
+                value = rest_of_line;
+                value.erase(0, value.find_first_not_of(" \t\r\n"));
+                value.erase(value.find_last_not_of(" \t\r\n") + 1);
 
-        // Extract data from boost::asio::const_buffer
-        std::istream is(&_buffer);
-        std::string request;
-        std::getline(is, request);
-        request.erase(0, request.find_first_not_of(" \t\r\n"));
-        request.erase(request.find_last_not_of(" \t\r\n") + 1);
-
-        if (request.empty()) {
-            boost::asio::async_read_until(_socket, _buffer, "\n",
-                boost::asio::bind_executor(_strand,
-                    [self = shared_from_this()](const boost::system::error_code& error, size_t bytes_transferred) {
-                        self->handle_read(error, bytes_transferred);        // If request is empty, carry on reading
-                    }));
-            return;
-        }
-
-        std::cerr << "[DEBUG] Raw request: " << request << "\n" << std::flush;
-        std::string command, key, value;
-        std::istringstream iss(request);
-        iss >> command >> key;
-
-        std::cerr << "[DEBUG] Parsed command: '" << command << ", key: " << key << "'\n" << std::flush;
-
-        if (command == "JOIN") {
-            _message = "JOIN command received\n";
-        } else if (command == "LEAVE") {
-            if (!key.empty()) {
-                // If client is requesting to leave active nodes,
-                // post the lambda expression defined below to the _nodes_strand
-                // to synchronise access to the active_nodes hash map
-                std::cerr << "[DEBUG] Removing node: " << key << "\n" << std::flush;
-                boost::asio::post(_server->_nodes_strand, [self = shared_from_this(), key]() {
-                    self->_server->remove_node(key);
-                    self->_message = "OK\n";
-                    boost::asio::async_write(self->_socket, boost::asio::buffer(self->_message),
-                        boost::asio::bind_executor(self->_strand,
-                            [self](const boost::system::error_code& error, size_t bytes_transferred) {
-                                self->handle_write(error, bytes_transferred);
-                            }));
-                });
+                if (key.empty() || value.empty()) {
+                    std::cerr << "[ERROR] PUT command missing key or value\n" << std::flush;
+                    _message = "ERROR: Missing key or value for PUT\n";
+                } else {
+                    std::cerr << "[DEBUG] PUT key: '" << key << "', value: '" << value << "'\n" << std::flush;
+                    std::cerr << "[DEBUG] Storing key locally\n" << std::flush;
+                    kv_store->put(key, value);
+                    _message = "OK\n";
+                }
+            } else if (command == "GET") {
+                if (!key.empty()) {
+                    std::cerr << "[DEBUG] Getting key: '" << key << "'\n" << std::flush;
+                    std::string result = kv_store->get(key);
+                    if (result.empty()) {
+                        std::cerr << "[DEBUG] Key not found\n" << std::flush;
+                        _message = "NOT_FOUND\n";
+                    } else {
+                        std::cerr << "[DEBUG] Found value: '" << result << "'\n" << std::flush;
+                        _message = result + "\n";
+                    }
+                } else {
+                    std::cerr << "[ERROR] GET command missing key\n" << std::flush;
+                    _message = "ERROR: Missing key for GET\n";
+                }
+            } else if (command == "DELETE") {
+                if (!key.empty()) {
+                    std::cerr << "[DEBUG] Deleting key: '" << key << "'\n" << std::flush;
+                    int result = kv_store->remove(key);
+                    _message = (result == 0) ? "OK\n" : "NOT_FOUND\n";
+                } else {
+                    std::cerr << "[ERROR] DELETE command missing key\n" << std::flush;
+                    _message = "ERROR: Missing key for DELETE\n";
+                }
+            } else if (command == "EXIT") {
+                std::cerr << "[DEBUG] Closing connection per client request\n" << std::flush;
+                _message = "CLOSING_SOCKET\n";
+                boost::asio::async_write(_socket, boost::asio::buffer(_message),
+                    boost::asio::bind_executor(_strand,
+                        [self = shared_from_this()](const boost::system::error_code& error, size_t bytes_transferred) {
+                            self->handle_write(error, bytes_transferred);
+                        }));
+                _socket.close();
                 return;
             } else {
-                std::cerr << "[ERROR] LEAVE command missing address\n" << std::flush;
-                _message = "ERROR: Missing address for LEAVE\n";
+                std::cerr << "[ERROR] Unkown command: " << command << "\n" << std::flush;
+                _message = "ERROR: Unkown command\n";
             }
-        } else if (command == "PUT") {
-            // Extract data from boost::asio::const_buffer
-            std::string rest_of_line;
-            std::getline(iss, rest_of_line);
-            value = rest_of_line;
-            value.erase(0, value.find_first_not_of(" \t\r\n"));
-            value.erase(value.find_last_not_of(" \t\r\n") + 1);
-
-            if (key.empty() || value.empty()) {
-                std::cerr << "[ERROR] PUT command missing key or value\n" << std::flush;
-                _message = "ERROR: Missing key or value for PUT\n";
-            } else {
-                std::cerr << "[DEBUG] PUT key: '" << key << "', value: '" << value << "'\n" << std::flush;
-                std::cerr << "[DEBUG] Storing key locally\n" << std::flush;
-                kv_store->put(key, value);
-                _message = "OK\n";
-            }
-        } else if (command == "GET") {
-            if (!key.empty()) {
-                std::cerr << "[DEBUG] Getting key: '" << key << "'\n" << std::flush;
-                std::string result = kv_store->get(key);
-                if (result.empty()) {
-                    std::cerr << "[DEBUG] Key not found\n" << std::flush;
-                    _message = "NOT_FOUND\n";
-                } else {
-                    std::cerr << "[DEBUG] Found value: '" << result << "'\n" << std::flush;
-                    _message = result + "\n";
-                }
-            } else {
-                std::cerr << "[ERROR] GET command missing key\n" << std::flush;
-                _message = "ERROR: Missing key for GET\n";
-            }
-        } else if (command == "DELETE") {
-            if (!key.empty()) {
-                std::cerr << "[DEBUG] Deleting key: '" << key << "'\n" << std::flush;
-                int result = kv_store->remove(key);
-                _message = (result == 0) ? "OK\n" : "NOT_FOUND\n";
-            } else {
-                std::cerr << "[ERROR] DELETE command missing key\n" << std::flush;
-                _message = "ERROR: Missing key for DELETE\n";
-            }
-        } else if (command == "EXIT") {
-            std::cerr << "[DEBUG] Closing connection per client request\n" << std::flush;
-            _message = "CLOSING_SOCKET\n";
-            boost::asio::async_write(_socket, boost::asio::buffer(_message),
-                boost::asio::bind_executor(_strand,
-                    [self = shared_from_this()](const boost::system::error_code& error, size_t bytes_transferred) {
-                        self->handle_write(error, bytes_transferred);
-                    }));
-            _socket.close();
-            return;
-        } else {
-            std::cerr << "[ERROR] Unkown command: " << command << "\n" << std::flush;
-            _message = "ERROR: Unkown command\n";
         }
 
         std::cerr << "[DEBUG] Sending response: " << _message << "\n" << std::flush;
@@ -152,7 +138,7 @@ void TCPConnection::handle_read(const boost::system::error_code& error, size_t b
         std::cerr << "[ERROR] Read error: " << error.message() << "\n" << std::flush;
         stop();
         _socket.close();
-    }
+    } 
 }
 
 
@@ -207,7 +193,7 @@ std::string TCPConnection::forward_to_node(std::string_view address, std::string
 
 void TCPServer::start_accept() 
 {
-    TCPConnection::pointer new_connection = TCPConnection::create(static_cast<boost::asio::io_context&>(_acceptor.get_executor().context()));
+    TCPConnection::pointer new_connection = TCPConnection::create(static_cast<boost::asio::io_context&>(_acceptor.get_executor().context()), client_rate_limit);
     _acceptor.async_accept(new_connection->socket(),
     [this, new_connection](const boost::system::error_code& error) {
             handle_accept(new_connection, error);
@@ -283,14 +269,14 @@ void TCPServer::remove_node(std::string_view address)
 int main(int argc, char **argv) 
 {
     try {   
-        if (argc < 3) {
-            std::cerr << "USAGE: " << argv[0] << "<port> <address>\n";
-            return 1;
-        }
+        // if (argc < 3) {
+        //     std::cerr << "USAGE: " << argv[0] << "<address> <port>\n";
+        //     return 1;
+        // }
 
         boost::asio::io_context io_context;
-        const int port = atoi(argv[1]);
-        const std::string address = argv[2];
+        const int port = atoi(argv[2]);
+        const std::string address = argv[1];
         const int num_threads = std::thread::hardware_concurrency();
 
         TCPServer tcp_server(io_context, port, address);

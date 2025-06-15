@@ -1,8 +1,12 @@
-#ifndef TOCKET_BUCKET_H
-#define TOCKET_BUCKET_H
+#ifndef TOKEN_BUCKET_H
+#define TOKEN_BUCKET_H
 
 #include <thread>
 #include <mutex>
+#include <iostream>
+#include <string>
+#include <chrono>
+#include <sstream>
 
 class TokenBucket
 {
@@ -16,11 +20,16 @@ public:
 
     bool consume(double tokens);
     void stop() {}
+    double get_tokens() const;
+    std::chrono::steady_clock::time_point get_last_updated() const;
+    std::string serialize() const;
+    void deserialize(const std::string& state);
 
 private:
     double capacity_, rate_, tokens_;
     std::chrono::steady_clock::time_point last_updated_;
-    std::mutex mutex_;
+    std::chrono::milliseconds refill_period_;
+    mutable std::mutex mutex_;
 };
 
-#endif      // TOCKET_BUCKET_H
+#endif      // TOKEN_BUCKET_H
