@@ -5,6 +5,7 @@
 #include "kv_store.h"
 #include "consistent_hash.h"
 #include "token_bucket.h"
+#include "gossip_rate_limiter.h"
 
 #include <boost/asio.hpp>
 #include <boost/asio/read_until.hpp>
@@ -28,6 +29,7 @@
 #include <sstream>
 #include <vector>
 #include <unordered_set>
+#include <string_view>
 #include <fstream>
 #include <fcntl.h>
 #include <unistd.h>
@@ -35,7 +37,7 @@
 
 using boost::asio::ip::tcp;
 
-std::mutex console_mutex;
+extern std::mutex console_mutex;
 class TCPConnection;
 
 
@@ -44,19 +46,25 @@ class TCPServer
 public:
     TCPServer(boost::asio::io_context& io_context, unsigned short port, const std::string &address)
         :   self_address(address), 
-            _acceptor(io_context, tcp::endpoint(tcp::v4(), port)), 
-            _nodes_strand(boost::asio::make_strand(io_context)),
-            _io_context(io_context),
-            rate_limiter_(100.0, 200.0),
-            client_rate_limiter(10.0, 50.0)
+            acceptor_(io_context, tcp::endpoint(tcp::v4(), port)), 
+            nodes_strand(boost::asio::make_strand(io_context)),
+            io_context_(io_context),
+            rate_limiter(100.0, 200.0),
+            client_rate_limiter(10.0, 50.0),
+            gossip_rate_limiter(1000.0, 2000.0, this, io_context)
         {
             start_accept();
+            gossip_rate_limiter.start();
         }    
 
     void run_server(boost::asio::io_context& context, int port, int threads);
     void handle_client(tcp::socket socket);
     void add_node(const std::string_view address);
     void remove_node(const std::string_view address);
+    std::string forward_to_node(std::string_view address, std::string_view message);
+
+    std::unordered_set<std::string> active_nodes;       
+    std::string self_address;   
     
 private:
     friend class TCPConnection;     // For _nodes_strand
@@ -64,15 +72,14 @@ private:
     void start_accept();
     void handle_accept(std::shared_ptr<TCPConnection> new_connection, const boost::system::error_code& error);
 
-    std::string self_address;   
-    tcp::acceptor _acceptor;
-    KVStore _store;                 
-    std::unordered_set<std::string> active_nodes;       
+    tcp::acceptor acceptor_;
+    KVStore store;                 
     std::mutex node_mutex;
-    boost::asio::strand<boost::asio::io_context::executor_type> _nodes_strand;
-    boost::asio::io_context& _io_context;
-    // Node wide and client rate
-    TokenBucket rate_limiter_, client_rate_limiter;      
+    boost::asio::strand<boost::asio::io_context::executor_type> nodes_strand;
+    boost::asio::io_context& io_context_;
+    TokenBucket rate_limiter, client_rate_limiter;      
+    GossipRateLimiter gossip_rate_limiter;      // Global rate limiter
+    size_t rejected_requests = 0;
 };
 
 
@@ -83,26 +90,25 @@ public:
     static pointer create(boost::asio::io_context& io_context, const TokenBucket& client_rate_limit) {
         return std::make_shared<TCPConnection>(io_context, client_rate_limit);
     }
-    tcp::socket& socket() { return _socket; }
+    tcp::socket& socket() { return socket_; }
     void start(KVStore& store, TCPServer* server);
-    void stop() { rate_limiter_.stop(); }
+    void stop() { client_rate_limiter.stop(); }
 
 private:
     friend class std::allocator<TCPConnection>;     // Allow std::make_shared access private constructor
     TCPConnection(boost::asio::io_context& io_context, const TokenBucket& client_rate_limit) 
-        : _socket(io_context), _strand(boost::asio::make_strand(io_context)), 
-            client_rate_limiter_(client_rate_limit) {}
+        : socket_(io_context), strand_(boost::asio::make_strand(io_context)), 
+            client_rate_limiter(client_rate_limit.rate, client_rate_limit.get_capacity()) {}
     void handle_write(const boost::system::error_code& error, size_t bytes_transferred);
     void handle_read(const boost::system::error_code& error, size_t bytes_transferred);
-    std::string forward_to_node(std::string_view address, std::string_view message);
 
-    tcp::socket _socket;
-    std::string _message;
-    boost::asio::streambuf _buffer;
+    tcp::socket socket_;
+    std::string message;
+    boost::asio::streambuf buffer;
     KVStore *kv_store = nullptr;
-    TCPServer *_server = nullptr;
-    ConsistentHash *_hash_ring = nullptr;
-    boost::asio::strand<boost::asio::io_context::executor_type> _strand;
+    TCPServer *server = nullptr;
+    ConsistentHash *hash_ring = nullptr;
+    boost::asio::strand<boost::asio::io_context::executor_type> strand_;
     TokenBucket client_rate_limiter;
 };
 

@@ -4,7 +4,7 @@ ShardKV is currently in a very early testing phase. While CMake is the build sys
 ### Build
 ```bash
 # For the TCP server, requires you clone MurmurHash3
-g++ server.cpp kv_store.cpp consistent_hash.cpp MurmurHash3.cpp \ 
+g++ server.cpp kv_store.cpp consistent_hash.cpp MurmurHash3.cpp token_bucket.cpp gossip_rate_limiter.cpp \ 
 -I$(brew --prefix boost)/include \
 -L$(brew --prefix boost)/lib \
 -std=c++17 -Wall -Wextra \
