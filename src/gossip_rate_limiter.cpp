@@ -51,7 +51,7 @@ void GossipRateLimiter::broadcast_state()
 }
 
 
-void GossipRateLimiter::recieve_state(const std::string& address, const std::string& state)
+void GossipRateLimiter::recive_state(const std::string& address, const std::string& state)
 {
     std::lock_guard<std::mutex> lock(state_mutex);
     try {

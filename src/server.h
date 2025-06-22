@@ -51,10 +51,10 @@ public:
             io_context_(io_context),
             rate_limiter(100.0, 200.0),
             client_rate_limiter(10.0, 50.0),
-            gossip_rate_limiter(1000.0, 2000.0, this, io_context)
+            gossip_rate_limiter(std::make_shared<GossipRateLimiter>(1000.0, 2000.0, this, io_context))
         {
             start_accept();
-            gossip_rate_limiter.start();
+            gossip_rate_limiter->start();
         }    
 
     void run_server(boost::asio::io_context& context, int port, int threads);
@@ -78,7 +78,7 @@ private:
     boost::asio::strand<boost::asio::io_context::executor_type> nodes_strand;
     boost::asio::io_context& io_context_;
     TokenBucket rate_limiter, client_rate_limiter;      
-    GossipRateLimiter gossip_rate_limiter;      // Global rate limiter
+    std::shared_ptr<GossipRateLimiter> gossip_rate_limiter;      // Global rate limiter
     size_t rejected_requests = 0;
 };
 

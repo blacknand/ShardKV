@@ -6,7 +6,7 @@ std::mutex console_mutex;
 void TCPConnection::start(KVStore& store, TCPServer* server) 
 {
     kv_store = &store;
-    server = server;
+    this->server = server;
     // Start async reading of data from the client immediately
     boost::asio::post(strand_, [self = shared_from_this()] {
         boost::asio::async_read_until(self->socket_, self->buffer, "\n",
@@ -44,9 +44,9 @@ void TCPConnection::handle_read(const boost::system::error_code& error, size_t b
             std::string state;
             std::getline(iss, state);
             state.erase(0, state.find_first_not_of(" \t\r\n"));
-            server->gossip_rate_limiter.recieve_state(server->self_address, state);
+            server->gossip_rate_limiter->recive_state(server->self_address, state);
             message = "OK\n";
-        } else if (!server->gossip_rate_limiter.consume(1.0)) {
+        } else if (!server->gossip_rate_limiter->consume(1.0)) {
             message = "ERROR: Global rate limit exceeded\n";
             std::cerr << "[ERROR] Global rate limit exceeded\n" << std::flush;
             server->rejected_requests++;
@@ -138,7 +138,7 @@ void TCPConnection::handle_read(const boost::system::error_code& error, size_t b
                         server->rate_limiter.update(rate, burst_size);
                         message = "OK\n";
                     } else if (type == "global") {
-                        server->gossip_rate_limiter.update_rate_limit(rate, burst_size);
+                        server->gossip_rate_limiter->update_rate_limit(rate, burst_size);
                         message = "OK\n";
                     } else {
                         message = "ERROR: Invalid rate limit type\n";
@@ -150,12 +150,12 @@ void TCPConnection::handle_read(const boost::system::error_code& error, size_t b
                 std::ostringstream oss;
                 oss << "client_tokens:" << client_rate_limiter.get_tokens() << "\n"
                     << "node_tokens:" << server->rate_limiter.get_tokens() << "\n"
-                    << "global_tokens:" << server->gossip_rate_limiter.get_tokens() << "\n"
+                    << "global_tokens:" << server->gossip_rate_limiter->get_tokens() << "\n"
                     << "rejected_requests:" << server->rejected_requests << "\n";
                 message = oss.str();
             } else if (command == "EXIT") {
                 std::cerr << "[DEBUG] Closing connection per client request\n" << std::flush;
-                message = "CLOSINGsocket_\n";
+                message = "Closing socket_\n";
                 boost::asio::async_write(socket_, boost::asio::buffer(message),
                     boost::asio::bind_executor(strand_,
                         [self = shared_from_this()](const boost::system::error_code& error, size_t bytes_transferred) {
@@ -202,6 +202,12 @@ std::string TCPServer::forward_to_node(std::string_view address, std::string_vie
 {
     try {
         size_t colon = address.find(':');
+        if (colon == std::string::npos) {
+            std::lock_guard<std::mutex> lock(console_mutex);
+            std::cerr << "[ERROR] Invalid address format: " << address << "\n" << std::flush;
+            return "ERROR_FORWARDING";
+        }        
+
         std::cerr << "[FORWARD] Attempting to resolve: " << address << "\n" << std::flush;
         std::string host = std::string(address.substr(0, colon));
         host.erase(0, host.find_first_not_of(" \t\r\n")); 
@@ -210,20 +216,30 @@ std::string TCPServer::forward_to_node(std::string_view address, std::string_vie
         port.erase(0, port.find_first_not_of(" \t\r\n")); 
         port.erase(port.find_last_not_of(" \t\r\n") + 1);
 
-        if (colon == std::string::npos) {
-            std::cerr << "[ERROR] Invalid address format: " << address << "\n";
-            std::cerr << std::flush;
-            return "ERROR_FORWARDING";
-        }        
-
         if (host.empty() || port.empty()) {
-            std::cerr << "[ERROR] Empty host or port extracted from address: " << address << "\n";
-            std::cerr << std::flush;
+            std::lock_guard<std::mutex> lock(console_mutex);
+            std::cerr << "[ERROR] Empty host or port extracted from address: " << address << "\n" << std::flush;
             return "ERROR_FORWARDING";
         }       
 
-        return "NULL";
+        tcp::resolver resolver(io_context_);
+        auto endpoints = resolver.resolve(host, port);
+        tcp::socket socket(io_context_);
+        boost::asio::connect(socket, endpoints);
+        boost::asio::write(socket, boost::asio::buffer(message));
+        boost::asio::write(socket, boost::asio::buffer("\n"));
+        boost::asio::streambuf response;
+        std::istream response_stream(&response);
+        std::string result;
+        std::getline(response_stream, result);
+        socket.close();
+
+        std::lock_guard<std::mutex> lock(console_mutex);
+        std::cerr << "[INFO] Reiceved response from " << address << ": " << result << "\n" << std::flush;
+
+        return result;
     } catch (std::exception& e) {
+        std::lock_guard<std::mutex> lock(console_mutex);
         std::cerr << "Forwarding error: " << e.what() << "\n";
         return "ERROR_FORWARDING";
     }

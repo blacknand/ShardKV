@@ -22,7 +22,7 @@ public:
     bool consume(double tokens);
     void start();
     void stop();
-    void recieve_state(const std::string& address, const std::string& state);
+    void recive_state(const std::string& address, const std::string& state);
     void update_rate_limit(double rate, double burst_size);
     // void update(double new_rate, double new_capacity);
     double get_tokens() const;
