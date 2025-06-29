@@ -1,9 +1,11 @@
-#include "server.h"
+#include "kv_server.h"
+
+// #include "../version_config.h"
 
 std::mutex console_mutex;
 
 
-void TCPConnection::start(KVStore& store, TCPServer* server) 
+void KVTCPConnection::start(KVStore& store, KVTCPServer* server) 
 {
     kv_store = &store;
     this->server = server;
@@ -18,7 +20,7 @@ void TCPConnection::start(KVStore& store, TCPServer* server)
 }
 
 
-void TCPConnection::handle_read(const boost::system::error_code& error, size_t bytes_transferred) {
+void KVTCPConnection::handle_read(const boost::system::error_code& error, size_t bytes_transferred) {
     if (!error) {
         std::istream is(&buffer);
         std::string request;
@@ -182,7 +184,7 @@ void TCPConnection::handle_read(const boost::system::error_code& error, size_t b
 }
 
 
-void TCPConnection::handle_write(const boost::system::error_code& error, size_t bytes_transferred) 
+void KVTCPConnection::handle_write(const boost::system::error_code& error, size_t bytes_transferred) 
 {
     if (!error) {
         std::cerr << "[DEBUG] Command sent successfully\n" << std::flush;
@@ -198,7 +200,7 @@ void TCPConnection::handle_write(const boost::system::error_code& error, size_t 
 }
 
 
-std::string TCPServer::forward_to_node(std::string_view address, std::string_view message) 
+std::string KVTCPServer::forward_to_node(std::string_view address, std::string_view message) 
 {
     try {
         size_t colon = address.find(':');
@@ -246,9 +248,9 @@ std::string TCPServer::forward_to_node(std::string_view address, std::string_vie
 }
 
 
-void TCPServer::start_accept() 
+void KVTCPServer::start_accept() 
 {
-    TCPConnection::pointer new_connection = TCPConnection::create(static_cast<boost::asio::io_context&>(acceptor_.get_executor().context()), client_rate_limiter);
+    KVTCPConnection::pointer new_connection = KVTCPConnection::create(static_cast<boost::asio::io_context&>(acceptor_.get_executor().context()), client_rate_limiter);
     acceptor_.async_accept(new_connection->socket(),
     [this, new_connection](const boost::system::error_code& error) {
             handle_accept(new_connection, error);
@@ -256,7 +258,7 @@ void TCPServer::start_accept()
 }
 
 
-void TCPServer::handle_accept(std::shared_ptr<TCPConnection> new_connection, const boost::system::error_code& error) 
+void KVTCPServer::handle_accept(std::shared_ptr<KVTCPConnection> new_connection, const boost::system::error_code& error) 
 {
     if (!error) {
         std::cout << "Client connected" << std::endl; 
@@ -268,15 +270,15 @@ void TCPServer::handle_accept(std::shared_ptr<TCPConnection> new_connection, con
 }
 
 
-void TCPServer::handle_client(tcp::socket socket) 
+void KVTCPServer::handle_client(tcp::socket socket) 
 {
-    auto new_connection = TCPConnection::create(static_cast<boost::asio::io_context&>(socket.get_executor().context()), client_rate_limiter);
+    auto new_connection = KVTCPConnection::create(static_cast<boost::asio::io_context&>(socket.get_executor().context()), client_rate_limiter);
     new_connection->socket() = std::move(socket);
     new_connection->start(store, this);
 }
 
 
-void TCPServer::run_server(boost::asio::io_context& context, int port, int threads) 
+void KVTCPServer::run_server(boost::asio::io_context& context, int port, int threads) 
 {
     auto work_guard = boost::asio::make_work_guard(context);
 
@@ -305,7 +307,7 @@ void TCPServer::run_server(boost::asio::io_context& context, int port, int threa
 }
 
 
-void TCPServer::add_node(std::string_view address) 
+void KVTCPServer::add_node(std::string_view address) 
 {
     boost::asio::post(nodes_strand, [this, address = std::string(address)]() {
         active_nodes.insert(address);
@@ -313,7 +315,7 @@ void TCPServer::add_node(std::string_view address)
 }
 
 
-void TCPServer::remove_node(std::string_view address) 
+void KVTCPServer::remove_node(std::string_view address) 
 {
     boost::asio::post(nodes_strand, [this, address = std::string(address)]() {
         active_nodes.erase(address);
@@ -329,12 +331,14 @@ int main(int argc, char **argv)
         //     return 1;
         // 
 
+        // std::cout << "ShardKV server. Version " << ShardKV_VERSION_MAJOR << "." << ShardKV_VERSION_MINOR << std::endl;
+
         boost::asio::io_context io_context;
         const int port = atoi(argv[2]);
         const std::string address = argv[1];
         const int num_threads = std::thread::hardware_concurrency();
 
-        TCPServer tcp_server(io_context, port, address);
+        KVTCPServer tcp_server(io_context, port, address);
         tcp_server.run_server(io_context, port, num_threads);
     } catch (std::exception &e) {
         std::cerr << "Exception: " << e.what() << std::endl;

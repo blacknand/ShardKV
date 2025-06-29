@@ -1,0 +1,3 @@
+// the configured options and settings for ShardKV
+#define ShardKV_VERSION_MAJOR @ShardKV_VERSION_MAJOR@
+#define ShardKV_VERSION_MINOR @ShardKV_VERSION_MINOR@

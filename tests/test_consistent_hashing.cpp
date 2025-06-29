@@ -1,5 +1,7 @@
-#include "../src/consistent_hash.h"
-#include "../src/hash_utils.h"
+#include "~/libs/consistent_hashing/consistent_hash.h"
+#include "~/libs/utils/hash_utils.h"
+
+// #include "../version_config.h"
 
 #include <gtest/gtest.h>
 

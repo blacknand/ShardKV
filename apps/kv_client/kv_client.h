@@ -1,11 +1,7 @@
-#ifndef CLIENT_H
-#define CLIENT_H
+#ifndef KV_TCP_CLIENT_H
+#define KV_TCP_CLIENT_H
 
 #include <boost/asio.hpp>
-
-// #include "shardkv.ph.h"
-// #include "shardkv.grpc.ph.h"
-// #include <grpcpp/grpcpp.h>
 
 #include <iostream>
 #include <functional>
@@ -16,10 +12,10 @@
 using boost::asio::ip::tcp;
 
 
-class TCPClient 
+class KVTCPClient 
 {
 public:
-    TCPClient(boost::asio::io_context& io_context, const std::string& host, const std::string& port)
+    KVTCPClient(boost::asio::io_context& io_context, const std::string& host, const std::string& port)
         : _io_context(io_context), _socket(io_context), _resolver(io_context) {
         _resolver.async_resolve(host, port,
             [this](const boost::system::error_code& error, tcp::resolver::results_type results) {
@@ -40,4 +36,4 @@ private:
 };
 
 
-#endif  // CLIENT_H
+#endif  // KV_TCP_CLIENT_H

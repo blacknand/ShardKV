@@ -9,11 +9,11 @@
 #include <mutex>
 #include <memory>
 
-class TCPServer;
+class KVTCPServer;
 class GossipRateLimiter : public std::enable_shared_from_this<GossipRateLimiter>
 {
 public:
-    GossipRateLimiter(double rate, double burst_size, TCPServer* server,
+    GossipRateLimiter(double rate, double burst_size, KVTCPServer* server,
                         boost::asio::io_context& io_context,
                         std::chrono::milliseconds gossip_interval = std::chrono::milliseconds(100))
     :   local_bucket(rate, burst_size), server(server), gossip_interval(gossip_interval),
@@ -32,7 +32,7 @@ private:
     void broadcast_state();
 
     TokenBucket local_bucket;
-    TCPServer* server;
+    KVTCPServer* server;
     std::chrono::milliseconds gossip_interval;
     boost::asio::steady_timer timer_;
     std::map<std::string, std::pair<double, std::chrono::steady_clock::time_point>> nodes_states;

@@ -1,5 +1,5 @@
-#include "../src/server.h"
-#include "../src/client.h"
+#include "~/apps/kv_server/kv_server.h"
+#include "~/apps/kv_client/kv_client.h"
 
 #include <thread>
 #include <mutex>

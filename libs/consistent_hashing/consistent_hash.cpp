@@ -1,5 +1,7 @@
 #include "consistent_hash.h"
 
+// #include "../version_config.h"
+
 
 void ConsistentHash::add_node(const std::string &node) 
 {

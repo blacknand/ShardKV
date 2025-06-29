@@ -1,4 +1,6 @@
-#include "../src/kv_store.h"
+#include "~/libs/kv_sotre/kv_store.h"
+
+// #include "../version_config.h"
 
 #include <gtest/gtest.h>
 #include <thread>

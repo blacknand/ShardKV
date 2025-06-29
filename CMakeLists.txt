@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 4.0.1)
 project(ShardKV)
 
+configure_file(version_config.in.h, version_config.h)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_PREFIX_PATH "$ENV{HOME}/.local")
@@ -11,6 +13,8 @@ file(MAKE_DIRECTORY ${PROTO_GEN_DIR})
 set(PROTO_FILE ${PROTO_SRC_DIR}/shardkv.proto)
 
 cmake_policy(SET CMP0135 NEW) #CMake policyt 0135 DOWNLOAD_EXTRACT_TIMESTAMP
+
+# TODO: Enable exceptions for googletest
 
 include(FindProtobuf)
 find_package(Protobuf REQUIRED)

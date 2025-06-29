@@ -1,6 +1,6 @@
-#include "kv_store.h"
-#include "consistent_hash.h"
-#include "hash_utils.h"
+#include "~/libs/kv_store/kv_store.h"
+#include "~/libs/consistent_hashing/consistent_hash.h"
+#include "~/libs/utils/hash_utils.h"
 
 
 KVStore::KVStore() : shards(NUM_SHARDS), shared_mutexes(NUM_SHARDS) {}

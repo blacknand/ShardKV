@@ -1,5 +1,5 @@
 #include "gossip_rate_limiter.h"
-#include "server.h"
+#include "~/apps/kv_server/kv_server.h"
 
 
 void GossipRateLimiter::start()

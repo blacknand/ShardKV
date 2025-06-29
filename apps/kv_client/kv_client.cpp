@@ -1,13 +1,15 @@
-#include "client.h"
+#include "kv_client.h"
+
+// #include "../version_config.h"
 
 
-void TCPClient::start() 
+void KVTCPClient::start() 
 {
     _io_context.run();
 }
 
 
-void TCPClient::handle_resolve(const boost::system::error_code& error, tcp::resolver::results_type endpoint_iterator) 
+void KVTCPClient::handle_resolve(const boost::system::error_code& error, tcp::resolver::results_type endpoint_iterator) 
 {
     if (!error) {
         boost::asio::async_connect(_socket, endpoint_iterator,
@@ -20,7 +22,7 @@ void TCPClient::handle_resolve(const boost::system::error_code& error, tcp::reso
 }
 
 
-void TCPClient::handle_connect(const boost::system::error_code& error) 
+void KVTCPClient::handle_connect(const boost::system::error_code& error) 
 {
     if (!error) {
         _socket.set_option(boost::asio::ip::tcp::no_delay(true));  // Disable Nagle’s
@@ -37,7 +39,7 @@ void TCPClient::handle_connect(const boost::system::error_code& error)
 }
 
 
-void TCPClient::handle_read(const boost::system::error_code& error, size_t bytes_transferred) 
+void KVTCPClient::handle_read(const boost::system::error_code& error, size_t bytes_transferred) 
 {
     if (!error) {
         std::istream is(&_buffer);
@@ -71,7 +73,7 @@ void TCPClient::handle_read(const boost::system::error_code& error, size_t bytes
 }
 
 
-void TCPClient::handle_write(const boost::system::error_code& error, size_t bytes_transferred) 
+void KVTCPClient::handle_write(const boost::system::error_code& error, size_t bytes_transferred) 
 {
     if (!error) {
         boost::asio::async_read_until(_socket, _buffer, "\n",
@@ -109,7 +111,7 @@ int main(int argc, char **argv)
         std::cerr << "Message should now appear in debug.log\n";
 
         boost::asio::io_context io_context;
-        TCPClient client(io_context, argv[1], argv[2]);
+        KVTCPClient client(io_context, argv[1], argv[2]);
         client.start();
     } catch (std::exception& e) {
         std::cerr << "Exception: " << e.what() << "\n";

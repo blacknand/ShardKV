@@ -16,7 +16,7 @@
         <mxCell id="Iobbqiktzw6upL-KEDW6-4" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#232F3D;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.client;" vertex="1" parent="1">
           <mxGeometry x="660" y="770" width="78" height="76" as="geometry" />
         </mxCell>
-        <mxCell id="Iobbqiktzw6upL-KEDW6-5" value="TCPConnection" style="edgeStyle=orthogonalEdgeStyle;htmDepartman barl=1;endArrow=open;elbow=vertical;startArrow=open;startFill=0;endFill=0;strokeColor=#545B64;rounded=0;" edge="1" parent="1" source="Iobbqiktzw6upL-KEDW6-1" target="Iobbqiktzw6upL-KEDW6-4">
+        <mxCell id="Iobbqiktzw6upL-KEDW6-5" value="KVTCPConnection" style="edgeStyle=orthogonalEdgeStyle;htmDepartman barl=1;endArrow=open;elbow=vertical;startArrow=open;startFill=0;endFill=0;strokeColor=#545B64;rounded=0;" edge="1" parent="1" source="Iobbqiktzw6upL-KEDW6-1" target="Iobbqiktzw6upL-KEDW6-4">
           <mxGeometry x="0.7323" width="100" relative="1" as="geometry">
             <mxPoint x="360" y="710" as="sourcePoint" />
             <mxPoint x="460" y="710" as="targetPoint" />
@@ -27,7 +27,7 @@
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="Iobbqiktzw6upL-KEDW6-7" value="TCPConnection" style="edgeStyle=orthogonalEdgeStyle;htmDepartman barl=1;endArrow=open;elbow=vertical;startArrow=open;startFill=0;endFill=0;strokeColor=#545B64;rounded=0;" edge="1" parent="1" source="Iobbqiktzw6upL-KEDW6-2" target="Iobbqiktzw6upL-KEDW6-1">
+        <mxCell id="Iobbqiktzw6upL-KEDW6-7" value="KVTCPConnection" style="edgeStyle=orthogonalEdgeStyle;htmDepartman barl=1;endArrow=open;elbow=vertical;startArrow=open;startFill=0;endFill=0;strokeColor=#545B64;rounded=0;" edge="1" parent="1" source="Iobbqiktzw6upL-KEDW6-2" target="Iobbqiktzw6upL-KEDW6-1">
           <mxGeometry x="-0.3989" width="100" relative="1" as="geometry">
             <mxPoint x="380" y="640" as="sourcePoint" />
             <mxPoint x="480" y="640" as="targetPoint" />
@@ -49,7 +49,7 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="Iobbqiktzw6upL-KEDW6-10" value="TCPConnection" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="Iobbqiktzw6upL-KEDW6-9">
+        <mxCell id="Iobbqiktzw6upL-KEDW6-10" value="KVTCPConnection" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="Iobbqiktzw6upL-KEDW6-9">
           <mxGeometry x="-0.6121" relative="1" as="geometry">
             <mxPoint y="28" as="offset" />
           </mxGeometry>

@@ -1,7 +1,8 @@
 #ifndef HASH_UTILS_H
 #define HASH_UTILS_H
 
-#include "MurmurHash3.h"
+#include "~/third_party/MurmurHash3.h"
+
 #include <string>
 #include <cstdint>
 
